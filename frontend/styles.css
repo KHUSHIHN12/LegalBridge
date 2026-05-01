@@ -115,6 +115,27 @@
     text-align: right;
   }
 
+  .logout-btn {
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(232, 184, 75, 0.32);
+    background: rgba(255, 249, 240, 0.08);
+    color: var(--warm-white);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.2s, background 0.2s, border-color 0.2s;
+  }
+
+  .logout-btn:hover {
+    transform: translateY(-1px);
+    background: rgba(232, 184, 75, 0.16);
+    border-color: rgba(232, 184, 75, 0.5);
+  }
+
   .badge {
     display: inline-flex;
     align-items: center;
@@ -870,6 +891,7 @@
     .ai-panel { grid-template-columns: 1fr; }`r`n    .lookup-grid { grid-template-columns: 1fr; }
     .header-inner { flex-wrap: wrap; }
     .header-badges { margin-left: 0; flex-direction: row; }
+    .logout-btn { margin-left: auto; }
     .compare-grid { grid-template-columns: 1fr; }
     .compare-connector { display: none; }
     .stats-row { grid-template-columns: repeat(2, 1fr); }
