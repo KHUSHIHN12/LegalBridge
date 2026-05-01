@@ -1,0 +1,46 @@
+name: LegalBridge CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - feature/*
+      - feature/khushi-dev
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  legalbridge-build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Project Code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Install Flask Dependencies
+        run: |
+          pip install flask
+
+      - name: Validate Backend Python File
+        run: |
+          python -m py_compile backend/app.py
+
+      - name: Check Frontend Files
+        run: |
+          test -f frontend/index.html
+          test -f frontend/signup.html
+          test -f frontend/signin.html
+          test -f frontend/about.html
+          test -f frontend/styles.css
+          test -f frontend/auth.css
+          test -f frontend/app.js
+          test -f frontend/auth.js
+
+      - name: Pipeline Success Message
+        run: echo "LegalBridge Build Successful"
