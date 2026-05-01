@@ -35,7 +35,6 @@
   <div class="tabs">
     <button class="tab active" onclick="switchTab('lookup')">🔍 Section Lookup</button>
     <button class="tab" onclick="switchTab('search')">📚 Browse Sections</button>
-    <button class="tab" onclick="switchTab('compare')">⚖ Compare</button>
   </div>
 
   <!-- LOOKUP TAB -->
@@ -115,55 +114,6 @@
     </div>
   </div>
 
-  <!-- COMPARE TAB -->
-  <div class="panel" id="tab-compare">
-    <div class="compare-grid">
-      <div class="compare-col ipc-col sidebar-card compare-card">
-        <div class="compare-col-header">
-          <h3>Indian Penal Code 1860</h3>
-          <p>The original criminal law of India</p>
-        </div>
-        <div class="compare-col-body">
-          <div class="compare-section-input">
-            <input type="text" id="compareIPC" placeholder="Enter IPC Section..."
-              onkeydown="if(event.key==='Enter') compareSection('ipc')">
-            <button onclick="compareSection('ipc')">Show</button>
-          </div>
-          <div id="compareIPCResult">
-            <div class="empty-state">
-              <div class="icon">⚖</div>
-              <p>Enter an IPC section to view its details and BNS mapping</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="compare-connector">
-        <div class="compare-connector-icon">⇄</div>
-        <span>Maps to</span>
-      </div>
-
-      <div class="compare-col bns-col sidebar-card compare-card">
-        <div class="compare-col-header">
-          <h3>Bharatiya Nyaya Sanhita 2023</h3>
-          <p>The new criminal law replacing IPC</p>
-        </div>
-        <div class="compare-col-body">
-          <div class="compare-section-input">
-            <input type="text" id="compareBNS" placeholder="Enter BNS Section..."
-              onkeydown="if(event.key==='Enter') compareSection('bns')">
-            <button onclick="compareSection('bns')">Show</button>
-          </div>
-          <div id="compareBNSResult">
-            <div class="empty-state">
-              <div class="icon">📜</div>
-              <p>Enter a BNS section to view its details and IPC mapping</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
 </main>
 
 <footer>
