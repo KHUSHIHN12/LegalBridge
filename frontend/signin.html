@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LegalBridge | Secure Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="./auth.css">
+</head>
+<body class="auth-page signin-page">
+  <div class="page-shell">
+    <header class="site-header">
+      <nav class="navbar">
+        <a class="brand" href="./index.html">
+          <span class="brand-mark"><i class="fa-solid fa-scale-balanced"></i></span>
+          <span class="brand-copy">
+            <strong>LegalBridge</strong>
+            <small>AI Powered Legal Intelligence</small>
+          </span>
+        </a>
+        <button class="nav-toggle" type="button" aria-label="Toggle navigation" data-nav-toggle>
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="nav-links" data-nav-menu>
+          <a href="./about.html">About</a>
+          <a href="./index.html">Platform</a>
+          <a href="./signup.html">Create Account</a>
+          <a href="./signin.html" class="nav-cta active">Sign In</a>
+        </div>
+      </nav>
+    </header>
+
+    <main class="auth-main">
+      <section class="auth-layout signin-layout">
+        <aside class="brand-panel glass-panel">
+          <div class="panel-badge">Secure Access</div>
+          <h1>Welcome to LegalBridge</h1>
+          <p class="brand-subtitle">AI Powered Legal Intelligence Platform</p>
+          <p class="brand-description">
+            Access your legal intelligence workspace, case analysis dashboard, and section mapping tools in one secure environment.
+          </p>
+
+          <ul class="feature-list">
+            <li><i class="fa-solid fa-check"></i> Instant IPC ↔ BNS Mapping</li>
+            <li><i class="fa-solid fa-check"></i> Smart Criminal Case Analysis</li>
+            <li><i class="fa-solid fa-check"></i> Legal Provision Recommendation</li>
+          </ul>
+
+        </aside>
+
+        <section class="form-panel glass-panel">
+          <div class="form-heading">
+            <span class="eyebrow">Protected workspace access</span>
+            <h2>Sign In to Continue</h2>
+            <p>Securely access your LegalBridge dashboard and continue analyzing criminal-law scenarios.</p>
+          </div>
+
+          <form class="auth-form" data-auth-form="signin" novalidate>
+            <div class="field-group">
+              <label for="signin-email">Email Address</label>
+              <div class="input-shell">
+                <i class="fa-regular fa-envelope"></i>
+                <input id="signin-email" name="email" type="email" placeholder="name@firm.com" data-validate="email" required>
+              </div>
+              <small class="field-message"></small>
+            </div>
+
+            <div class="field-group">
+              <label for="signin-password">Password</label>
+              <div class="input-shell">
+                <i class="fa-solid fa-lock"></i>
+                <input id="signin-password" name="password" type="password" placeholder="Enter your password" data-validate="password" required>
+                <button class="input-action" type="button" data-toggle-password aria-label="Show password">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+              </div>
+              <small class="field-message"></small>
+            </div>
+
+            <div class="form-meta">
+              <label class="checkbox-row compact">
+                <input type="checkbox" name="rememberMe">
+                <span>Remember Me</span>
+              </label>
+              <a class="text-link" href="#">Forgot Password?</a>
+            </div>
+
+
+            <button class="primary-button" type="submit" data-submit-label="Secure Login">
+              <span>Secure Login</span>
+              <i class="fa-solid fa-arrow-right-to-bracket"></i>
+            </button>
+
+            <p class="redirect-copy">
+              New to LegalBridge?
+              <a href="./signup.html">Create an account</a>
+            </p>
+          </form>
+        </section>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <strong>LegalBridge</strong>
+        <span>Secure legal-tech infrastructure for criminal law interpretation and case intelligence.</span>
+      </div>
+      <div class="footer-links">
+        <a href="./about.html">About</a>
+        <a href="./signup.html">Register</a>
+        <a href="./index.html">Go to Platform</a>
+      </div>
+    </footer>
+  </div>
+
+  <div class="toast" id="authToast" role="status" aria-live="polite">
+    <i class="fa-solid fa-circle-check"></i>
+    <span data-toast-message>Success</span>
+  </div>
+
+  <script src="./auth.js"></script>
+</body>
+</html>

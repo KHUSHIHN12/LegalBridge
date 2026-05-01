@@ -503,6 +503,10 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
+function logoutUser() {
+  window.location.href = './signin.html';
+}
+
 // Clear chat
 function clearChat() {
   chatHistory = [];
