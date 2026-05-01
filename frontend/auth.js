@@ -1,4 +1,44 @@
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const REGISTERED_USER_KEY = "legalbridgeRegisteredUser";
+const CURRENT_USER_KEY = "legalbridgeCurrentUser";
+
+function readStoredJson(key) {
+  try {
+    const value = window.localStorage.getItem(key);
+    return value ? JSON.parse(value) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function writeStoredJson(key, value) {
+  window.localStorage.setItem(key, JSON.stringify(value));
+}
+
+function buildUserNameFromEmail(email) {
+  const base = (email || "LegalBridge User").split("@")[0].replace(/[._-]+/g, " ").trim();
+  return base
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ") || "LegalBridge User";
+}
+
+function setCurrentUser(user) {
+  writeStoredJson(CURRENT_USER_KEY, user);
+}
+
+function getCurrentUser() {
+  return readStoredJson(CURRENT_USER_KEY);
+}
+
+function updateCurrentUserUI() {
+  const userSlot = document.querySelector("[data-current-user]");
+  if (!userSlot) return;
+
+  const currentUser = getCurrentUser();
+  userSlot.textContent = currentUser?.fullName || currentUser?.email || "Guest";
+}
 
 function initNavToggle() {
   const toggle = document.querySelector("[data-nav-toggle]");
@@ -165,11 +205,20 @@ function handleSubmit(form) {
       }
 
       if (type === "signup") {
+        const fullName = form.querySelector('input[name="fullName"]')?.value.trim() || "LegalBridge User";
+        const email = form.querySelector('input[name="email"]')?.value.trim() || "";
+        writeStoredJson(REGISTERED_USER_KEY, { fullName, email });
         showToast("Account created successfully. Redirecting to sign in...");
         window.setTimeout(() => {
           window.location.href = "./signin.html";
         }, 1000);
       } else {
+        const email = form.querySelector('input[name="email"]')?.value.trim() || "";
+        const registeredUser = readStoredJson(REGISTERED_USER_KEY);
+        const matchedUser = registeredUser && registeredUser.email === email
+          ? registeredUser
+          : { fullName: buildUserNameFromEmail(email), email };
+        setCurrentUser(matchedUser);
         showToast("Login successful. Redirecting to dashboard...");
         window.setTimeout(() => {
           window.location.href = "./index.html";
@@ -211,8 +260,14 @@ function initPasswordToggles() {
   });
 }
 
+function logoutUser() {
+  window.localStorage.removeItem(CURRENT_USER_KEY);
+  window.location.href = "./signin.html";
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   initNavToggle();
   initPasswordToggles();
   initAuthForms();
+  updateCurrentUserUI();
 });
