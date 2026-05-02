@@ -1,12 +1,42 @@
-#test change 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session
 from flask_cors import CORS
-import json, os
+from werkzeug.security import check_password_hash, generate_password_hash
+import json
+import os
+import sqlite3
 
 app = Flask(__name__)
-CORS(app)
+app.secret_key = os.environ.get("LEGALBRIDGE_SECRET_KEY", "legalbridge-dev-secret-key")
+CORS(app, supports_credentials=True)
 
 base_dir = os.path.dirname(__file__)
+db_path = os.path.join(base_dir, "users.db")
+
+
+def get_db_connection():
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_user_db():
+    with get_db_connection() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fullname TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.commit()
+
+
+init_user_db()
+
 with open(os.path.join(base_dir, "../data/sections.json")) as f:
     data = json.load(f)
 
@@ -38,6 +68,86 @@ def predict_section(text):
 @app.route("/")
 def home():
     return "LegalBridge Backend Running ✅"
+
+@app.route("/api/signup", methods=["POST"])
+def signup():
+    body = request.get_json(silent=True) or {}
+    fullname = (body.get("fullname") or "").strip()
+    email = (body.get("email") or "").strip().lower()
+    password = body.get("password") or ""
+
+    if not fullname or not email or not password:
+        return jsonify({"success": False, "message": "Full name, email, and password are required."}), 400
+
+    password_hash = generate_password_hash(password)
+
+    try:
+        with get_db_connection() as conn:
+            conn.execute(
+                "INSERT INTO users (fullname, email, password) VALUES (?, ?, ?)",
+                (fullname, email, password_hash),
+            )
+            conn.commit()
+    except sqlite3.IntegrityError:
+        return jsonify({"success": False, "message": "A user with this email already exists."}), 409
+
+    return jsonify({"success": True, "message": "Account created successfully."}), 201
+
+
+@app.route("/api/login", methods=["POST"])
+def login():
+    body = request.get_json(silent=True) or {}
+    email = (body.get("email") or "").strip().lower()
+    password = body.get("password") or ""
+
+    if not email or not password:
+        return jsonify({"success": False, "message": "Email and password are required."}), 400
+
+    with get_db_connection() as conn:
+        user = conn.execute(
+            "SELECT id, fullname, email, password FROM users WHERE email = ?",
+            (email,),
+        ).fetchone()
+
+    if not user or not check_password_hash(user["password"], password):
+        return jsonify({"success": False, "message": "Invalid email or password."}), 401
+
+    session["logged_in"] = True
+    session["user_id"] = user["id"]
+    session["fullname"] = user["fullname"]
+    session["email"] = user["email"]
+
+    return jsonify({
+        "success": True,
+        "message": "Login successful.",
+        "user": {
+            "id": user["id"],
+            "fullName": user["fullname"],
+            "email": user["email"],
+        },
+    })
+
+
+@app.route("/api/check-session", methods=["GET"])
+def check_session():
+    if not session.get("logged_in"):
+        return jsonify({"authenticated": False}), 401
+
+    return jsonify({
+        "authenticated": True,
+        "user": {
+            "id": session.get("user_id"),
+            "fullName": session.get("fullname"),
+            "email": session.get("email"),
+        },
+    })
+
+
+@app.route("/api/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return jsonify({"success": True, "message": "Logged out successfully."})
+
 
 @app.route("/analyze", methods=["POST"])
 def analyze():

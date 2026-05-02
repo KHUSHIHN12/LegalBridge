@@ -1,6 +1,7 @@
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const REGISTERED_USER_KEY = "legalbridgeRegisteredUser";
 const CURRENT_USER_KEY = "legalbridgeCurrentUser";
+const LOGGED_IN_KEY = "legalbridge_logged_in";
+const API_BASE_URL = "http://127.0.0.1:5000";
 
 function readStoredJson(key) {
   try {
@@ -178,12 +179,37 @@ function showToast(message) {
   window.setTimeout(() => toast.classList.remove("show"), 2600);
 }
 
+async function sendAuthRequest(path, payload) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data.success === false) {
+    throw new Error(data.message || "Authentication request failed.");
+  }
+
+  return data;
+}
+
+function setButtonLoading(button, loading, label) {
+  if (!button) return;
+
+  const text = button.querySelector("span");
+  button.disabled = loading;
+  button.classList.toggle("is-loading", loading);
+  if (text) text.textContent = label;
+}
+
 function handleSubmit(form) {
   const type = form.dataset.authForm;
   const button = form.querySelector(".primary-button");
   const originalLabel = button?.dataset.submitLabel || "";
 
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     if (!validateForm(form)) {
@@ -191,40 +217,37 @@ function handleSubmit(form) {
       return;
     }
 
-    if (button) {
-      button.classList.add("is-loading");
-      const label = button.querySelector("span");
-      if (label) label.textContent = type === "signup" ? "Creating Account..." : "Signing In...";
-    }
+    setButtonLoading(button, true, type === "signup" ? "Creating Account..." : "Signing In...");
 
-    window.setTimeout(() => {
-      if (button) {
-        button.classList.remove("is-loading");
-        const label = button.querySelector("span");
-        if (label) label.textContent = originalLabel;
-      }
-
+    try {
       if (type === "signup") {
-        const fullName = form.querySelector('input[name="fullName"]')?.value.trim() || "LegalBridge User";
+        const fullname = form.querySelector('input[name="fullName"]')?.value.trim() || "";
         const email = form.querySelector('input[name="email"]')?.value.trim() || "";
-        writeStoredJson(REGISTERED_USER_KEY, { fullName, email });
+        const password = form.querySelector('input[name="password"]')?.value || "";
+
+        await sendAuthRequest("/api/signup", { fullname, email, password });
         showToast("Account created successfully. Redirecting to sign in...");
         window.setTimeout(() => {
           window.location.href = "./signin.html";
         }, 1000);
       } else {
         const email = form.querySelector('input[name="email"]')?.value.trim() || "";
-        const registeredUser = readStoredJson(REGISTERED_USER_KEY);
-        const matchedUser = registeredUser && registeredUser.email === email
-          ? registeredUser
-          : { fullName: buildUserNameFromEmail(email), email };
-        setCurrentUser(matchedUser);
-        showToast("Login successful. Redirecting to dashboard...");
-        window.setTimeout(() => {
-          window.location.href = "./index.html";
-        }, 1000);
+        const password = form.querySelector('input[name="password"]')?.value || "";
+        const data = await sendAuthRequest("/api/login", { email, password });
+
+        if (data.success !== true) {
+          throw new Error(data.message || "Invalid email or password.");
+        }
+
+        window.localStorage.setItem(LOGGED_IN_KEY, "true");
+        setCurrentUser(data.user || { fullName: buildUserNameFromEmail(email), email });
+        window.location.href = "index.html";
       }
-    }, 1400);
+    } catch (error) {
+      showToast(error.message || "Invalid credentials.");
+    } finally {
+      setButtonLoading(button, false, originalLabel);
+    }
   });
 }
 
@@ -260,7 +283,30 @@ function initPasswordToggles() {
   });
 }
 
-function logoutUser() {
+function initProtectedPlatformLinks() {
+  document.querySelectorAll("[data-platform-link]").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      if (window.localStorage.getItem(LOGGED_IN_KEY) === "true") return;
+
+      event.preventDefault();
+      showToast("Please sign in before opening the platform dashboard.");
+      window.setTimeout(() => {
+        window.location.href = "./signin.html";
+      }, 800);
+    });
+  });
+}
+
+async function logoutUser() {
+  try {
+    await fetch(`${API_BASE_URL}/api/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch (error) {
+    // Local logout should still proceed if the backend is temporarily unavailable.
+  }
+  window.localStorage.removeItem(LOGGED_IN_KEY);
   window.localStorage.removeItem(CURRENT_USER_KEY);
   window.location.href = "./signin.html";
 }
@@ -269,5 +315,6 @@ document.addEventListener("DOMContentLoaded", () => {
   initNavToggle();
   initPasswordToggles();
   initAuthForms();
+  initProtectedPlatformLinks();
   updateCurrentUserUI();
 });
