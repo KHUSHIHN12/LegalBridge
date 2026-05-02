@@ -4,6 +4,9 @@
 let LEGAL_DATA = null;
 let browseFilter = 'all';
 let chatHistory = [];
+const DASHBOARD_API_BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000'
+  : 'http://127.0.0.1:5000';
 
 function requirePlatformAuth() {
   if (window.localStorage.getItem('legalbridge_logged_in') !== 'true') {
@@ -11,7 +14,7 @@ function requirePlatformAuth() {
     return false;
   }
 
-  fetch('http://127.0.0.1:5000/api/check-session', {
+  fetch(`${DASHBOARD_API_BASE_URL}/api/check-session`, {
     method: 'GET',
     credentials: 'include',
   })
@@ -606,7 +609,7 @@ function escapeHtml(text) {
 
 async function logoutUser() {
   try {
-    await fetch('http://127.0.0.1:5000/api/logout', {
+    await fetch(`${DASHBOARD_API_BASE_URL}/api/logout`, {
       method: 'POST',
       credentials: 'include',
     });

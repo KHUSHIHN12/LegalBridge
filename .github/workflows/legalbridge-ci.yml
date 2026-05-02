@@ -82,6 +82,25 @@ jobs:
 
           kill $APP_PID
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Newman
+        run: npm install -g newman
+
+      - name: Run Postman API tests with Newman
+        run: |
+          python backend/app.py &
+          APP_PID=$!
+          trap "kill $APP_PID" EXIT
+
+          sleep 5
+          curl --fail http://127.0.0.1:5000/
+
+          newman run testing/LegalBridge_API_Testing_Collection.json
+
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v4
         with:
