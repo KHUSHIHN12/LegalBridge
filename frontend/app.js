@@ -5,13 +5,42 @@ let LEGAL_DATA = null;
 let browseFilter = 'all';
 let chatHistory = [];
 
+function requirePlatformAuth() {
+  if (window.localStorage.getItem('legalbridge_logged_in') !== 'true') {
+    window.location.replace('signin.html');
+    return false;
+  }
+
+  fetch('http://127.0.0.1:5000/api/check-session', {
+    method: 'GET',
+    credentials: 'include',
+  })
+    .then(response => {
+      if (!response.ok) throw new Error('Session expired');
+      return response.json();
+    })
+    .then(data => {
+      if (data.user) {
+        window.localStorage.setItem('legalbridgeCurrentUser', JSON.stringify(data.user));
+        updateCurrentUserUI();
+      }
+    })
+    .catch(() => {
+      console.warn('Unable to verify Flask session; keeping local dashboard access state.');
+    });
+
+  return true;
+}
+
 // Data embedded directly - no fetch needed
 function loadData() {
   LEGAL_DATA = window.LEGAL_DATA_EMBEDDED;
   console.log('Legal data loaded:', Object.keys(LEGAL_DATA.ipc_sections).length, 'IPC,', Object.keys(LEGAL_DATA.bns_sections).length, 'BNS');
 }
 
-loadData();
+if (requirePlatformAuth()) {
+  loadData();
+}
 
 // ─────────────────────────────────────────────
 // TAB SWITCHING
@@ -575,7 +604,17 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
-function logoutUser() {
+async function logoutUser() {
+  try {
+    await fetch('http://127.0.0.1:5000/api/logout', {
+      method: 'POST',
+      credentials: 'include',
+    });
+  } catch (error) {
+    // Keep local logout reliable even if the API is unavailable.
+  }
+  window.localStorage.removeItem('legalbridge_logged_in');
+  window.localStorage.removeItem('legalbridgeCurrentUser');
   window.location.href = './signin.html';
 }
 
