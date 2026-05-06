@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, session
+from prometheus_client import Counter, generate_latest
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 import json
@@ -7,7 +8,11 @@ import sqlite3
 
 app = Flask(__name__)
 
-
+# Prometheus Counter
+REQUEST_COUNT = Counter(
+    'app_requests_total',
+    'Total App HTTP Request Count'
+)
 
 app.secret_key = os.environ.get("LEGALBRIDGE_SECRET_KEY", "legalbridge-dev-secret-key")
 
