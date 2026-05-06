@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify, session
-from prometheus_client import Counter, generate_latest
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 import json
