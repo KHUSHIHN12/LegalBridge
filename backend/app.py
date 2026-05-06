@@ -7,11 +7,7 @@ import sqlite3
 
 app = Flask(__name__)
 
-# Prometheus Counter
-REQUEST_COUNT = Counter(
-    'app_requests_total',
-    'Total App HTTP Request Count'
-)
+
 
 app.secret_key = os.environ.get("LEGALBRIDGE_SECRET_KEY", "legalbridge-dev-secret-key")
 
