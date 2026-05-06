@@ -156,17 +156,19 @@
 
   <div class="section-modal-backdrop" id="sectionDetailModal" aria-hidden="true" onclick="handleSectionModalBackdrop(event)">
     <section class="section-detail-modal" role="dialog" aria-modal="true" aria-labelledby="sectionModalTitle">
-      <button class="section-modal-close" type="button" aria-label="Close section details" onclick="closeSectionModal()">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
       <div class="section-modal-header">
-        <span class="section-modal-badge" id="sectionModalBadge">IPC &sect;302</span>
-        <h2 id="sectionModalTitle">Section title</h2>
+        <div class="section-modal-heading">
+          <span class="section-modal-badge" id="sectionModalBadge">IPC &sect;302</span>
+          <h2 id="sectionModalTitle">Section title</h2>
+        </div>
+        <button class="section-modal-close" type="button" aria-label="Close section details" onclick="closeSectionModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
       </div>
       <div class="section-modal-body">
         <div class="section-modal-block">
           <span class="section-modal-label">Complete statutory text</span>
-          <p id="sectionModalDescription"></p>
+          <div class="statutory-reader" id="sectionModalDescription"></div>
         </div>
         <div class="section-modal-block section-modal-mapping">
           <span class="section-modal-label">Equivalent mapped section</span>

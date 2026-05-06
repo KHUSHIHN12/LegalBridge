@@ -367,7 +367,7 @@
   z-index: 1000;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: 30px 18px;
   background: rgba(14, 24, 38, 0.58);
   backdrop-filter: blur(8px);
   opacity: 0;
@@ -384,12 +384,12 @@
 
 .section-detail-modal {
   position: relative;
-  width: min(760px, 100%);
-  max-height: min(82vh, 760px);
+  width: min(840px, 100%);
+  max-height: min(88vh, 820px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 24px;
+  border-radius: 18px;
   border: 1px solid rgba(199, 154, 66, 0.28);
   background: #fffaf0;
   box-shadow: 0 30px 80px rgba(8, 16, 28, 0.34);
@@ -404,9 +404,22 @@
 }
 
 .section-modal-header {
-  padding: 28px 32px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 28px 34px 22px;
   border-bottom: 1px solid rgba(199, 154, 66, 0.2);
-  background: linear-gradient(180deg, #fffaf0, #fff6e8);
+  background: rgba(255, 250, 240, 0.96);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 10px 24px rgba(28, 42, 62, 0.05);
+}
+
+.section-modal-heading {
+  min-width: 0;
 }
 
 .section-modal-badge {
@@ -424,17 +437,17 @@
 }
 
 .section-modal-header h2 {
-  margin: 14px 44px 0 0;
+  max-width: 680px;
+  margin: 12px 0 0;
   color: var(--ink);
   font-family: "Playfair Display", serif;
-  font-size: clamp(1.35rem, 2.4vw, 2rem);
-  line-height: 1.2;
+  font-size: clamp(1.3rem, 2.2vw, 1.9rem);
+  line-height: 1.28;
+  letter-spacing: 0;
 }
 
 .section-modal-close {
-  position: absolute;
-  top: 20px;
-  right: 20px;
+  flex: 0 0 auto;
   width: 42px;
   height: 42px;
   display: grid;
@@ -455,37 +468,136 @@
 }
 
 .section-modal-body {
-  padding: 24px 32px 30px;
+  padding: 34px 34px 38px;
   overflow-y: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(143, 103, 24, 0.38) rgba(255, 246, 232, 0.8);
+}
+
+.section-modal-body::-webkit-scrollbar {
+  width: 10px;
+}
+
+.section-modal-body::-webkit-scrollbar-track {
+  background: rgba(255, 246, 232, 0.8);
+}
+
+.section-modal-body::-webkit-scrollbar-thumb {
+  border: 3px solid rgba(255, 246, 232, 0.8);
+  border-radius: 999px;
+  background: rgba(143, 103, 24, 0.42);
 }
 
 .section-modal-block + .section-modal-block {
-  margin-top: 22px;
-  padding-top: 18px;
+  margin-top: 30px;
+  padding-top: 22px;
   border-top: 1px solid rgba(28, 42, 62, 0.1);
 }
 
 .section-modal-label {
   display: block;
-  margin-bottom: 8px;
-  color: #8f6718;
-  font-size: 0.76rem;
+  max-width: 680px;
+  margin: 0 auto 14px;
+  color: rgba(143, 103, 24, 0.78);
+  font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-.section-modal-body p {
+.section-modal-body p,
+.statutory-reader p {
   margin: 0;
-  color: var(--ink-soft);
-  font-size: 0.96rem;
-  line-height: 1.82;
-  white-space: pre-wrap;
+  color: #42506a;
+  font-size: 1.02rem;
+  line-height: 1.88;
+  letter-spacing: 0;
+}
+
+.statutory-reader {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 4px 0;
+  color: #42506a;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.statutory-paragraph {
+  margin-top: 16px;
+}
+
+.statutory-paragraph:first-child {
+  margin-top: 0;
+}
+
+.statutory-clause {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 18px;
+  padding: 16px 0 0;
+  border-top: 1px solid rgba(28, 42, 62, 0.08);
+}
+
+.statutory-clause:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.statutory-clause-letter {
+  margin-left: 24px;
+}
+
+.statutory-clause-roman {
+  margin-left: 48px;
+}
+
+.statutory-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 30px;
+  margin-top: 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(199, 154, 66, 0.3);
+  color: #8f6718;
+  background: rgba(255, 242, 207, 0.72);
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.statutory-note {
+  max-width: 680px;
+  margin: 24px auto 0;
+  padding: 16px 18px 18px;
+  border-left: 3px solid rgba(199, 154, 66, 0.58);
+  border-radius: 0 10px 10px 0;
+  background: rgba(255, 246, 232, 0.74);
+}
+
+.statutory-note span {
+  display: block;
+  margin-bottom: 7px;
+  color: #8f6718;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
 }
 
 .section-modal-mapping p {
+  max-width: 680px;
+  margin: 0 auto;
   color: var(--ink);
   font-weight: 700;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.55;
 }
 
 body.modal-open {
@@ -616,12 +728,49 @@ body.modal-open {
   .workspace-header-copy h1 { font-size: 1.6rem; }
 
   .section-modal-backdrop {
-    padding: 14px;
+    padding: 12px;
   }
 
   .section-modal-header,
   .section-modal-body {
     padding-left: 20px;
     padding-right: 20px;
+  }
+
+  .section-modal-header {
+    gap: 14px;
+    padding-top: 20px;
+    padding-bottom: 18px;
+  }
+
+  .section-modal-close {
+    width: 38px;
+    height: 38px;
+  }
+
+  .section-modal-body {
+    padding-top: 26px;
+    padding-bottom: 28px;
+  }
+
+  .section-modal-body p,
+  .statutory-reader p {
+    font-size: 0.98rem;
+    line-height: 1.78;
+  }
+
+  .statutory-clause {
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .statutory-clause-letter,
+  .statutory-clause-roman {
+    margin-left: 0;
+  }
+
+  .statutory-marker {
+    min-width: 30px;
+    height: 28px;
   }
 }

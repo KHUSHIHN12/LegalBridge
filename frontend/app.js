@@ -136,14 +136,72 @@ function openSectionModal(section) {
 
   document.getElementById('sectionModalBadge').textContent = `${section.label} \u00a7${section.num}`;
   document.getElementById('sectionModalTitle').textContent = section.title || `Section ${section.num}`;
-  document.getElementById('sectionModalDescription').textContent = section.description || 'Description not available.';
+  document.getElementById('sectionModalDescription').innerHTML = formatStatutoryText(section.description || 'Description not available.');
   document.getElementById('sectionModalMapping').textContent = section.equivalentLabel || 'No mapped section reference available.';
 
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
   document.body.classList.add('modal-open');
+  const modalBody = modal.querySelector('.section-modal-body');
+  if (modalBody) modalBody.scrollTop = 0;
   const closeBtn = modal.querySelector('.section-modal-close');
   if (closeBtn) closeBtn.focus();
+}
+
+function formatStatutoryText(text) {
+  const normalized = String(text || '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([,.;:])/g, '$1')
+    .trim();
+
+  if (!normalized) {
+    return '<p class="statutory-paragraph">Description not available.</p>';
+  }
+
+  const prepared = normalized
+    .replace(/\s+(?=\([0-9]+\))/g, '\n')
+    .replace(/\s+(?=\([a-z]\))/g, '\n')
+    .replace(/\s+(?=\([ivxlcdm]+\))/gi, '\n')
+    .replace(/\s+(?=(?:Provided that|Provided further that|Explanation|Illustrations?|Exception|STATE AMENDMENTS?|CHAPTER)\b)/g, '\n');
+
+  return prepared
+    .split(/\n+/)
+    .map(part => buildStatutoryClause(part.trim()))
+    .filter(Boolean)
+    .join('');
+}
+
+function buildStatutoryClause(part) {
+  if (!part) return '';
+
+  const markerMatch = part.match(/^(\(([0-9]+|[a-z]|[ivxlcdm]+)\))\s*(.*)$/i);
+  if (markerMatch) {
+    const marker = markerMatch[1];
+    const markerValue = markerMatch[2].toLowerCase();
+    const body = markerMatch[3] || '';
+    const level = /^[0-9]+$/.test(markerValue)
+      ? 'primary'
+      : /^(i|ii|iii|iv|v|vi|vii|viii|ix|x)$/.test(markerValue)
+        ? 'roman'
+        : 'letter';
+
+    return `
+      <div class="statutory-clause statutory-clause-${level}">
+        <span class="statutory-marker">${escapeHtml(marker)}</span>
+        <p>${escapeHtml(body)}</p>
+      </div>`;
+  }
+
+  const headingMatch = part.match(/^(Provided further that|Provided that|Explanation|Illustrations?|Exception|STATE AMENDMENTS?|CHAPTER)\b[:.\-\u2014]?\s*(.*)$/i);
+  if (headingMatch) {
+    return `
+      <div class="statutory-note">
+        <span>${escapeHtml(headingMatch[1])}</span>
+        <p>${escapeHtml(headingMatch[2])}</p>
+      </div>`;
+  }
+
+  return `<p class="statutory-paragraph">${escapeHtml(part)}</p>`;
 }
 
 function closeSectionModal() {
