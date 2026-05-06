@@ -4,6 +4,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 import json
 import os
 import sqlite3
+from search_engine import LegalSearchEngine
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("LEGALBRIDGE_SECRET_KEY", "legalbridge-dev-secret-key")
@@ -61,6 +62,7 @@ ipc_sections = data["ipc_sections"]
 bns_sections = data["bns_sections"]
 ipc_to_bns = data["ipc_to_bns"]
 bns_to_ipc = data["bns_to_ipc"]
+legal_search_engine = LegalSearchEngine(ipc_sections, bns_sections)
 
 
 def build_section_payload(law, section_number, section_data):
@@ -234,7 +236,7 @@ def map_bns_to_ipc():
 
 @app.route("/api/sections/search", methods=["GET"])
 def search_sections():
-    query = (request.args.get("q") or "").strip().lower()
+    query = (request.args.get("q") or "").strip()
     law_filter = (request.args.get("law") or "all").strip().lower()
 
     try:
@@ -242,33 +244,14 @@ def search_sections():
     except ValueError:
         limit = 20
 
-    results = []
-    collections = []
-    if law_filter in ("all", "ipc"):
-        collections.append(("IPC", ipc_sections))
-    if law_filter in ("all", "bns"):
-        collections.append(("BNS", bns_sections))
-
-    if not collections:
+    if law_filter not in ("all", "ipc", "bns"):
         return jsonify({"success": False, "message": "law must be one of all, ipc, or bns."}), 400
 
-    for law, sections in collections:
-        for section_number, section_data in sections.items():
-            haystack = " ".join([
-                section_number,
-                section_data.get("title", ""),
-                section_data.get("description", ""),
-            ]).lower()
-
-            if query and query not in haystack:
-                continue
-
-            results.append(build_section_payload(law, section_number, section_data))
-            if len(results) >= limit:
-                break
-
-        if len(results) >= limit:
-            break
+    results = legal_search_engine.search(
+        query=query,
+        law=law_filter,
+        limit=limit,
+    )
 
     return jsonify({
         "success": True,
