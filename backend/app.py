@@ -426,7 +426,7 @@ def map_bns_to_ipc():
 def search_sections():
     REQUEST_COUNT.inc()
 
-    query = (request.args.get("q") or "").strip()
+    query = (request.args.get("q") or "").strip().lower()
 
     law_filter = (
         request.args.get("law")
@@ -441,17 +441,41 @@ def search_sections():
     except ValueError:
         limit = 20
 
-    if law_filter not in ("all", "ipc", "bns"):
-        return jsonify({
-            "success": False,
-            "message": "law must be one of all, ipc, or bns."
-        }), 400
+    results = []
 
-    results = legal_search_engine.search(
-        query=query,
-        law=law_filter,
-        limit=limit,
-    )
+    if law_filter in ("all", "ipc"):
+        for section, details in ipc_sections.items():
+            title = details.get("title", "")
+            description = details.get("description", "")
+
+            if (
+                query in title.lower()
+                or query in description.lower()
+            ):
+                results.append({
+                    "law": "IPC",
+                    "section": section,
+                    "title": title,
+                    "description": description
+                })
+
+    if law_filter in ("all", "bns"):
+        for section, details in bns_sections.items():
+            title = details.get("title", "")
+            description = details.get("description", "")
+
+            if (
+                query in title.lower()
+                or query in description.lower()
+            ):
+                results.append({
+                    "law": "BNS",
+                    "section": section,
+                    "title": title,
+                    "description": description
+                })
+
+    results = results[:limit]
 
     return jsonify({
         "success": True,
