@@ -9,13 +9,18 @@ import sqlite3
 
 app = Flask(__name__)
 
-# Prometheus Counter
 REQUEST_COUNT = Counter(
-    'app_requests_total',
-    'Total App HTTP Request Count'
+    "app_requests_total",
+    "Total App HTTP Request Count"
 )
 
-app.secret_key = os.environ.get("LEGALBRIDGE_SECRET_KEY", "legalbridge-dev-secret-key")
+# -----------------------------
+# Flask Configuration
+# -----------------------------
+app.secret_key = os.environ.get(
+    "LEGALBRIDGE_SECRET_KEY",
+    "legalbridge-dev-secret-key"
+)
 
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
@@ -23,6 +28,9 @@ app.config.update(
     SESSION_COOKIE_SECURE=False,
 )
 
+# -----------------------------
+# CORS Configuration
+# -----------------------------
 CORS(
     app,
     supports_credentials=True,
@@ -37,6 +45,9 @@ CORS(
     ],
 )
 
+# -----------------------------
+# Database Setup
+# -----------------------------
 base_dir = os.path.dirname(__file__)
 db_path = os.path.join(base_dir, "users.db")
 
@@ -65,7 +76,10 @@ def init_user_db():
 
 init_user_db()
 
-with open(os.path.join(base_dir, "../data/sections.json")) as f:
+# -----------------------------
+# Load Legal Data
+# -----------------------------
+with open(os.path.join(base_dir, "../data/sections.json"), encoding="utf-8") as f:
     data = json.load(f)
 
 ipc_sections = data["ipc_sections"]
@@ -74,15 +88,9 @@ ipc_to_bns = data["ipc_to_bns"]
 bns_to_ipc = data["bns_to_ipc"]
 
 
-def build_section_payload(law, section_number, section_data):
-    return {
-        "law": law,
-        "section": section_number,
-        "title": section_data.get("title", f"Section {section_number}"),
-        "description": section_data.get("description", ""),
-    }
-
-
+# -----------------------------
+# Helper Functions
+# -----------------------------
 def predict_section(text):
     text = text.lower()
 
@@ -113,18 +121,29 @@ def predict_section(text):
     return None
 
 
+# -----------------------------
+# Home Route
+# -----------------------------
 @app.route("/")
 def home():
     REQUEST_COUNT.inc()
     return "LegalBridge Backend Running ✅"
 
 
+# -----------------------------
 # Prometheus Metrics Endpoint
+# -----------------------------
 @app.route("/metrics")
 def metrics():
-    return generate_latest(), 200, {'Content-Type': 'text/plain'}
+    REQUEST_COUNT.inc()
+    return generate_latest(), 200, {
+        "Content-Type": "text/plain"
+    }
 
 
+# -----------------------------
+# Signup API
+# -----------------------------
 @app.route("/api/signup", methods=["POST"])
 def signup():
     REQUEST_COUNT.inc()
@@ -163,6 +182,9 @@ def signup():
     }), 201
 
 
+# -----------------------------
+# Login API
+# -----------------------------
 @app.route("/api/login", methods=["POST"])
 def login():
     REQUEST_COUNT.inc()
@@ -200,20 +222,26 @@ def login():
         "message": "Login successful.",
         "user": {
             "id": user["id"],
-            "fullName": user["fullname"],
+            "fullname": user["fullname"],
             "email": user["email"],
         },
     })
 
+
+# -----------------------------
+# Session Check API
+# -----------------------------
 @app.route("/api/check-session", methods=["GET"])
 def check_session():
+    REQUEST_COUNT.inc()
+
     if session.get("logged_in"):
         return jsonify({
             "logged_in": True,
             "user": {
                 "id": session.get("user_id"),
                 "fullname": session.get("fullname"),
-                "email": session.get("email")
+                "email": session.get("email"),
             }
         })
 
@@ -221,8 +249,14 @@ def check_session():
         "logged_in": False
     }), 401
 
+
+# -----------------------------
+# Logout API
+# -----------------------------
 @app.route("/api/logout", methods=["POST"])
 def logout():
+    REQUEST_COUNT.inc()
+
     session.clear()
 
     return jsonify({
@@ -230,9 +264,16 @@ def logout():
         "message": "Logged out successfully."
     })
 
+
+# -----------------------------
+# IPC -> BNS Mapping API
+# -----------------------------
 @app.route("/api/mapping/ipc-to-bns", methods=["POST"])
 def ipc_to_bns_mapping():
-    body = request.get_json()
+    REQUEST_COUNT.inc()
+
+    body = request.get_json(silent=True) or {}
+
     ipc_section = body.get("ipc_section")
 
     mappings = ipc_to_bns.get(ipc_section, [])
@@ -242,9 +283,16 @@ def ipc_to_bns_mapping():
         "bns_mappings": mappings
     })
 
+
+# -----------------------------
+# BNS -> IPC Mapping API
+# -----------------------------
 @app.route("/api/mapping/bns-to-ipc", methods=["POST"])
 def bns_to_ipc_mapping():
-    body = request.get_json()
+    REQUEST_COUNT.inc()
+
+    body = request.get_json(silent=True) or {}
+
     bns_section = body.get("bns_section")
 
     mappings = bns_to_ipc.get(bns_section, [])
@@ -254,8 +302,14 @@ def bns_to_ipc_mapping():
         "ipc_mappings": mappings
     })
 
+
+# -----------------------------
+# Search Sections API
+# -----------------------------
 @app.route("/api/sections/search", methods=["GET"])
 def search_sections():
+    REQUEST_COUNT.inc()
+
     query = request.args.get("q", "").lower()
 
     results = []
@@ -281,11 +335,12 @@ def search_sections():
     })
 
 
+
 @app.route("/analyze", methods=["POST"])
 def analyze():
     REQUEST_COUNT.inc()
 
-    body = request.json
+    body = request.get_json(silent=True) or {}
 
     text = body.get("text", "")
     date = body.get("date", "")
@@ -295,18 +350,18 @@ def analyze():
     if not ipc_num or ipc_num not in ipc_sections:
         return jsonify({
             "error": "No matching section found for the given complaint."
-        })
+        }), 404
 
     ipc_info = ipc_sections[ipc_num]
     bns_equivalents = ipc_to_bns.get(ipc_num, [])
 
     bns_details = []
 
-    for b in bns_equivalents:
-        if b in bns_sections:
+    for bns in bns_equivalents:
+        if bns in bns_sections:
             bns_details.append({
-                "section": b,
-                "title": bns_sections[b]["title"]
+                "section": bns,
+                "title": bns_sections[bns]["title"]
             })
 
     law = "IPC" if date < "2024-07-01" else "BNS"
@@ -325,5 +380,8 @@ def analyze():
     })
 
 
+# -----------------------------
+# Run Flask App
+# -----------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
