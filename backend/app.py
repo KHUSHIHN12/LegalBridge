@@ -5,7 +5,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 import json
 import os
 import sqlite3
-#important
+
 
 app = Flask(__name__)
 
