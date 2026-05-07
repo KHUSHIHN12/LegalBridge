@@ -1,6 +1,6 @@
 flask==3.0.0
 flask-cors==4.0.0
 prometheus-flask-exporter
-prometheus_client
+prometheus-client
 scikit-learn==1.5.0
 
