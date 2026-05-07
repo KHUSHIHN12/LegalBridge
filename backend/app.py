@@ -205,6 +205,81 @@ def login():
         },
     })
 
+@app.route("/api/check-session", methods=["GET"])
+def check_session():
+    if session.get("logged_in"):
+        return jsonify({
+            "logged_in": True,
+            "user": {
+                "id": session.get("user_id"),
+                "fullname": session.get("fullname"),
+                "email": session.get("email")
+            }
+        })
+
+    return jsonify({
+        "logged_in": False
+    }), 401
+
+@app.route("/api/logout", methods=["POST"])
+def logout():
+    session.clear()
+
+    return jsonify({
+        "success": True,
+        "message": "Logged out successfully."
+    })
+
+@app.route("/api/mapping/ipc-to-bns", methods=["POST"])
+def ipc_to_bns_mapping():
+    body = request.get_json()
+    ipc_section = body.get("ipc_section")
+
+    mappings = ipc_to_bns.get(ipc_section, [])
+
+    return jsonify({
+        "ipc_section": ipc_section,
+        "bns_mappings": mappings
+    })
+
+@app.route("/api/mapping/bns-to-ipc", methods=["POST"])
+def bns_to_ipc_mapping():
+    body = request.get_json()
+    bns_section = body.get("bns_section")
+
+    mappings = bns_to_ipc.get(bns_section, [])
+
+    return jsonify({
+        "bns_section": bns_section,
+        "ipc_mappings": mappings
+    })
+
+@app.route("/api/sections/search", methods=["GET"])
+def search_sections():
+    query = request.args.get("q", "").lower()
+
+    results = []
+
+    for section, details in ipc_sections.items():
+        if query in details.get("title", "").lower():
+            results.append({
+                "law": "IPC",
+                "section": section,
+                "title": details.get("title")
+            })
+
+    for section, details in bns_sections.items():
+        if query in details.get("title", "").lower():
+            results.append({
+                "law": "BNS",
+                "section": section,
+                "title": details.get("title")
+            })
+
+    return jsonify({
+        "results": results
+    })
+
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
