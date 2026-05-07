@@ -2,21 +2,24 @@ from flask import Flask, request, jsonify, session
 from prometheus_client import Counter, generate_latest
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
+from search_engine import LegalSearchEngine
 import json
 import os
 import sqlite3
 
-
 app = Flask(__name__)
 
+# ---------------------------------------------------
+# Prometheus Metrics
+# ---------------------------------------------------
 REQUEST_COUNT = Counter(
     "app_requests_total",
     "Total App HTTP Request Count"
 )
 
-# -----------------------------
+# ---------------------------------------------------
 # Flask Configuration
-# -----------------------------
+# ---------------------------------------------------
 app.secret_key = os.environ.get(
     "LEGALBRIDGE_SECRET_KEY",
     "legalbridge-dev-secret-key"
@@ -28,9 +31,9 @@ app.config.update(
     SESSION_COOKIE_SECURE=False,
 )
 
-# -----------------------------
+# ---------------------------------------------------
 # CORS Configuration
-# -----------------------------
+# ---------------------------------------------------
 CORS(
     app,
     supports_credentials=True,
@@ -45,9 +48,9 @@ CORS(
     ],
 )
 
-# -----------------------------
+# ---------------------------------------------------
 # Database Setup
-# -----------------------------
+# ---------------------------------------------------
 base_dir = os.path.dirname(__file__)
 db_path = os.path.join(base_dir, "users.db")
 
@@ -76,10 +79,13 @@ def init_user_db():
 
 init_user_db()
 
-# -----------------------------
+# ---------------------------------------------------
 # Load Legal Data
-# -----------------------------
-with open(os.path.join(base_dir, "../data/sections.json"), encoding="utf-8") as f:
+# ---------------------------------------------------
+with open(
+    os.path.join(base_dir, "../data/sections.json"),
+    encoding="utf-8"
+) as f:
     data = json.load(f)
 
 ipc_sections = data["ipc_sections"]
@@ -87,10 +93,29 @@ bns_sections = data["bns_sections"]
 ipc_to_bns = data["ipc_to_bns"]
 bns_to_ipc = data["bns_to_ipc"]
 
+legal_search_engine = LegalSearchEngine(
+    ipc_sections,
+    bns_sections
+)
 
-# -----------------------------
+# ---------------------------------------------------
 # Helper Functions
-# -----------------------------
+# ---------------------------------------------------
+def build_section_payload(law, section_number, section_data):
+    return {
+        "law": law,
+        "section": section_number,
+        "title": section_data.get(
+            "title",
+            f"Section {section_number}"
+        ),
+        "description": section_data.get(
+            "description",
+            ""
+        ),
+    }
+
+
 def predict_section(text):
     text = text.lower()
 
@@ -121,29 +146,30 @@ def predict_section(text):
     return None
 
 
-# -----------------------------
+# ---------------------------------------------------
 # Home Route
-# -----------------------------
+# ---------------------------------------------------
 @app.route("/")
 def home():
     REQUEST_COUNT.inc()
     return "LegalBridge Backend Running ✅"
 
 
-# -----------------------------
+# ---------------------------------------------------
 # Prometheus Metrics Endpoint
-# -----------------------------
+# ---------------------------------------------------
 @app.route("/metrics")
 def metrics():
     REQUEST_COUNT.inc()
+
     return generate_latest(), 200, {
         "Content-Type": "text/plain"
     }
 
 
-# -----------------------------
+# ---------------------------------------------------
 # Signup API
-# -----------------------------
+# ---------------------------------------------------
 @app.route("/api/signup", methods=["POST"])
 def signup():
     REQUEST_COUNT.inc()
@@ -165,7 +191,11 @@ def signup():
     try:
         with get_db_connection() as conn:
             conn.execute(
-                "INSERT INTO users (fullname, email, password) VALUES (?, ?, ?)",
+                """
+                INSERT INTO users
+                (fullname, email, password)
+                VALUES (?, ?, ?)
+                """,
                 (fullname, email, password_hash),
             )
             conn.commit()
@@ -182,9 +212,9 @@ def signup():
     }), 201
 
 
-# -----------------------------
+# ---------------------------------------------------
 # Login API
-# -----------------------------
+# ---------------------------------------------------
 @app.route("/api/login", methods=["POST"])
 def login():
     REQUEST_COUNT.inc()
@@ -202,11 +232,18 @@ def login():
 
     with get_db_connection() as conn:
         user = conn.execute(
-            "SELECT id, fullname, email, password FROM users WHERE email = ?",
+            """
+            SELECT id, fullname, email, password
+            FROM users
+            WHERE email = ?
+            """,
             (email,),
         ).fetchone()
 
-    if not user or not check_password_hash(user["password"], password):
+    if not user or not check_password_hash(
+        user["password"],
+        password
+    ):
         return jsonify({
             "success": False,
             "message": "Invalid email or password."
@@ -222,37 +259,39 @@ def login():
         "message": "Login successful.",
         "user": {
             "id": user["id"],
-            "fullname": user["fullname"],
+            "fullName": user["fullname"],
             "email": user["email"],
         },
     })
 
 
-# -----------------------------
-# Session Check API
-# -----------------------------
+# ---------------------------------------------------
+# Session Validation API
+# ---------------------------------------------------
 @app.route("/api/check-session", methods=["GET"])
 def check_session():
     REQUEST_COUNT.inc()
 
-    if session.get("logged_in"):
+    if not session.get("logged_in"):
         return jsonify({
-            "logged_in": True,
-            "user": {
-                "id": session.get("user_id"),
-                "fullname": session.get("fullname"),
-                "email": session.get("email"),
-            }
-        })
+            "authenticated": False,
+            "success": False
+        }), 401
 
     return jsonify({
-        "logged_in": False
-    }), 401
+        "authenticated": True,
+        "success": True,
+        "user": {
+            "id": session.get("user_id"),
+            "fullName": session.get("fullname"),
+            "email": session.get("email"),
+        },
+    })
 
 
-# -----------------------------
+# ---------------------------------------------------
 # Logout API
-# -----------------------------
+# ---------------------------------------------------
 @app.route("/api/logout", methods=["POST"])
 def logout():
     REQUEST_COUNT.inc()
@@ -265,77 +304,168 @@ def logout():
     })
 
 
-# -----------------------------
-# IPC -> BNS Mapping API
-# -----------------------------
+# ---------------------------------------------------
+# IPC → BNS Mapping API
+# ---------------------------------------------------
 @app.route("/api/mapping/ipc-to-bns", methods=["POST"])
-def ipc_to_bns_mapping():
+def map_ipc_to_bns():
     REQUEST_COUNT.inc()
 
     body = request.get_json(silent=True) or {}
 
-    ipc_section = body.get("ipc_section")
+    ipc_num = str(
+        body.get("ipc_section")
+        or body.get("section")
+        or ""
+    ).strip().upper()
 
-    mappings = ipc_to_bns.get(ipc_section, [])
+    if not ipc_num:
+        return jsonify({
+            "success": False,
+            "message": "IPC section is required."
+        }), 400
+
+    ipc_info = (
+        ipc_sections.get(ipc_num)
+        or ipc_sections.get(ipc_num.lower())
+    )
+
+    if not ipc_info:
+        return jsonify({
+            "success": False,
+            "message": f"IPC section {ipc_num} not found."
+        }), 404
+
+    mapped_numbers = (
+        ipc_to_bns.get(ipc_num)
+        or ipc_to_bns.get(ipc_num.lower())
+        or []
+    )
+
+    bns_equivalents = [
+        build_section_payload(
+            "BNS",
+            bns_num,
+            bns_sections[bns_num]
+        )
+        for bns_num in mapped_numbers
+        if bns_num in bns_sections
+    ]
 
     return jsonify({
-        "ipc_section": ipc_section,
-        "bns_mappings": mappings
+        "success": True,
+        "status": "success",
+        "mapping_type": "ipc_to_bns",
+        "ipc_section": build_section_payload(
+            "IPC",
+            ipc_num,
+            ipc_info
+        ),
+        "bns_equivalents": bns_equivalents,
     })
 
 
-# -----------------------------
-# BNS -> IPC Mapping API
-# -----------------------------
+# ---------------------------------------------------
+# BNS → IPC Mapping API
+# ---------------------------------------------------
 @app.route("/api/mapping/bns-to-ipc", methods=["POST"])
-def bns_to_ipc_mapping():
+def map_bns_to_ipc():
     REQUEST_COUNT.inc()
 
     body = request.get_json(silent=True) or {}
 
-    bns_section = body.get("bns_section")
+    bns_num = str(
+        body.get("bns_section")
+        or body.get("section")
+        or ""
+    ).strip()
 
-    mappings = bns_to_ipc.get(bns_section, [])
+    if not bns_num:
+        return jsonify({
+            "success": False,
+            "message": "BNS section is required."
+        }), 400
+
+    bns_info = bns_sections.get(bns_num)
+
+    if not bns_info:
+        return jsonify({
+            "success": False,
+            "message": f"BNS section {bns_num} not found."
+        }), 404
+
+    mapped_numbers = bns_to_ipc.get(bns_num) or []
+
+    ipc_equivalents = [
+        build_section_payload(
+            "IPC",
+            ipc_num,
+            ipc_sections[ipc_num]
+        )
+        for ipc_num in mapped_numbers
+        if ipc_num in ipc_sections
+    ]
 
     return jsonify({
-        "bns_section": bns_section,
-        "ipc_mappings": mappings
+        "success": True,
+        "status": "success",
+        "mapping_type": "bns_to_ipc",
+        "bns_section": build_section_payload(
+            "BNS",
+            bns_num,
+            bns_info
+        ),
+        "ipc_equivalents": ipc_equivalents,
     })
 
 
-# -----------------------------
-# Search Sections API
-# -----------------------------
+# ---------------------------------------------------
+# Search API
+# ---------------------------------------------------
 @app.route("/api/sections/search", methods=["GET"])
 def search_sections():
     REQUEST_COUNT.inc()
 
-    query = request.args.get("q", "").lower()
+    query = (request.args.get("q") or "").strip()
 
-    results = []
+    law_filter = (
+        request.args.get("law")
+        or "all"
+    ).strip().lower()
 
-    for section, details in ipc_sections.items():
-        if query in details.get("title", "").lower():
-            results.append({
-                "law": "IPC",
-                "section": section,
-                "title": details.get("title")
-            })
+    try:
+        limit = min(
+            max(int(request.args.get("limit", 20)), 1),
+            100
+        )
+    except ValueError:
+        limit = 20
 
-    for section, details in bns_sections.items():
-        if query in details.get("title", "").lower():
-            results.append({
-                "law": "BNS",
-                "section": section,
-                "title": details.get("title")
-            })
+    if law_filter not in ("all", "ipc", "bns"):
+        return jsonify({
+            "success": False,
+            "message": "law must be one of all, ipc, or bns."
+        }), 400
+
+    results = legal_search_engine.search(
+        query=query,
+        law=law_filter,
+        limit=limit,
+    )
 
     return jsonify({
-        "results": results
+        "success": True,
+        "status": "success",
+        "query": query,
+        "law": law_filter,
+        "count": len(results),
+        "results": results,
     })
 
 
-
+# ---------------------------------------------------
+# Analyze API
+# ---------------------------------------------------
 @app.route("/analyze", methods=["POST"])
 def analyze():
     REQUEST_COUNT.inc()
@@ -349,24 +479,27 @@ def analyze():
 
     if not ipc_num or ipc_num not in ipc_sections:
         return jsonify({
+            "success": False,
             "error": "No matching section found for the given complaint."
         }), 404
 
     ipc_info = ipc_sections[ipc_num]
+
     bns_equivalents = ipc_to_bns.get(ipc_num, [])
 
     bns_details = []
 
-    for bns in bns_equivalents:
-        if bns in bns_sections:
+    for bns_num in bns_equivalents:
+        if bns_num in bns_sections:
             bns_details.append({
-                "section": bns,
-                "title": bns_sections[bns]["title"]
+                "section": bns_num,
+                "title": bns_sections[bns_num]["title"]
             })
 
     law = "IPC" if date < "2024-07-01" else "BNS"
 
     return jsonify({
+        "success": True,
         "complaint": text,
         "ipc_section": ipc_num,
         "ipc_title": ipc_info["title"],
@@ -380,8 +513,12 @@ def analyze():
     })
 
 
-# -----------------------------
+# ---------------------------------------------------
 # Run Flask App
-# -----------------------------
+# ---------------------------------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=True
+    )
