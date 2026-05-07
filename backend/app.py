@@ -93,10 +93,7 @@ bns_sections = data["bns_sections"]
 ipc_to_bns = data["ipc_to_bns"]
 bns_to_ipc = data["bns_to_ipc"]
 
-legal_search_engine = LegalSearchEngine(
-    ipc_sections,
-    bns_sections
-)
+
 
 # ---------------------------------------------------
 # Helper Functions
