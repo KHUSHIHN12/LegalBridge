@@ -3,5 +3,9 @@ flask-cors==4.0.0
 prometheus-flask-exporter
 prometheus-client
 scikit-learn==1.5.0
+<<<<<<< HEAD
 
 scikit-learn==1.6.1
+=======
+#deleted one scikit version
+>>>>>>> 4f8351b (fixed sklearn version conflict)
