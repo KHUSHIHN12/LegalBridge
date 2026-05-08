@@ -31,6 +31,10 @@ jobs:
       - name: Validate backend syntax
         run: |
           python -m py_compile backend/app.py
+      
+      - name: Validate backend syntax
+        run: |
+         python -m py_compile backend/app.py backend/search_engine.py
 
       - name: Validate legal mapping data
         run: |
