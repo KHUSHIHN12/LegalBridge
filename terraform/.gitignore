@@ -1,0 +1,17 @@
+# Local Terraform plugin/cache directory
+.terraform/
+
+# Terraform state files can contain infrastructure metadata.
+*.tfstate
+*.tfstate.*
+
+# Crash logs and override files are local-only.
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Local CLI plan output
+*.tfplan

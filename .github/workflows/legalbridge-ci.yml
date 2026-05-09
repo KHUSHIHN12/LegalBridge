@@ -9,6 +9,13 @@ jobs:
   validate-and-smoke-test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      # In a real GitHub repository, set these in:
+      # Settings > Secrets and variables > Actions > Repository secrets
+      SECRET_KEY: ${{ secrets.LEGALBRIDGE_SECRET_KEY || 'ci-demo-secret-key-change-this-in-github-secrets-1234567890' }}
+      JWT_SECRET: ${{ secrets.LEGALBRIDGE_JWT_SECRET || 'ci-demo-jwt-secret-change-this-in-github-secrets-1234567890' }}
+      FLASK_ENV: testing
+      DEBUG: "false"
 
     steps:
       - name: Checkout repository
@@ -31,10 +38,16 @@ jobs:
       - name: Validate backend syntax
         run: |
           python -m py_compile backend/app.py
-      
-      - name: Validate backend syntax
+
+      - name: Validate backend modules
         run: |
-         python -m py_compile backend/app.py backend/search_engine.py
+          python -m py_compile backend/app.py backend/search_engine.py
+
+      - name: Confirm secrets are provided through environment
+        run: |
+          test -n "$SECRET_KEY"
+          test -n "$JWT_SECRET"
+          test "$DEBUG" = "false"
 
       - name: Validate legal mapping data
         run: |
