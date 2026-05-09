@@ -1,0 +1,495 @@
+{
+  "info": {
+    "_postman_id": "9b68b0af-0df5-4e6d-93a4-0f78a6f8b612",
+    "name": "LegalBridge_API_Testing_Collection",
+    "description": "Professional Postman collection for validating LegalBridge Flask APIs, including authentication, session handling, IPC to BNS mapping, BNS to IPC mapping, and legal section browsing/search. Set collection variable base_url before running, for example http://127.0.0.1:5000.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.collectionVariables.get('test_run_id')) {",
+          "  const id = Date.now().toString();",
+          "  pm.collectionVariables.set('test_run_id', id);",
+          "  pm.collectionVariables.set('test_fullname', 'LegalBridge QA User');",
+          "  pm.collectionVariables.set('test_email', `legalbridge.qa.${id}@example.com`);",
+          "  pm.collectionVariables.set('test_password', 'LegalBridge@12345');",
+          "  pm.collectionVariables.set('invalid_password', 'WrongPassword@12345');",
+          "}",
+          "if (!pm.collectionVariables.get('ipc_section')) pm.collectionVariables.set('ipc_section', '302');",
+          "if (!pm.collectionVariables.get('bns_section')) pm.collectionVariables.set('bns_section', '103');",
+          "if (!pm.collectionVariables.get('search_query')) pm.collectionVariables.set('search_query', 'murder');"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:5000",
+      "type": "string"
+    },
+    {
+      "key": "test_run_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "test_fullname",
+      "value": "LegalBridge QA User",
+      "type": "string"
+    },
+    {
+      "key": "test_email",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "test_password",
+      "value": "LegalBridge@12345",
+      "type": "string"
+    },
+    {
+      "key": "invalid_password",
+      "value": "WrongPassword@12345",
+      "type": "string"
+    },
+    {
+      "key": "ipc_section",
+      "value": "302",
+      "type": "string"
+    },
+    {
+      "key": "bns_section",
+      "value": "103",
+      "type": "string"
+    },
+    {
+      "key": "search_query",
+      "value": "murder",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication API Tests",
+      "description": "Signup, login, session validation, and logout tests for the LegalBridge user management API.",
+      "item": [
+        {
+          "name": "1. User Signup Success Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullname\": \"{{test_fullname}}\",\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/signup",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "signup"
+              ]
+            },
+            "description": "Creates a new LegalBridge user in SQLite. Expected: HTTP 201 and success response."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected status code is 201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Signup response indicates success', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.success).to.eql(true);",
+                  "  pm.expect(json.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Duplicate User Signup Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullname\": \"{{test_fullname}}\",\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/signup",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "signup"
+              ]
+            },
+            "description": "Attempts to create the same user twice. Expected: HTTP 409 and duplicate user error."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected status code is 409 Conflict', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test('Duplicate signup response indicates failure', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.success).to.eql(false);",
+                  "  pm.expect(json.message.toLowerCase()).to.include('exists');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. User Login Success Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "login"
+              ]
+            },
+            "description": "Authenticates a registered user and establishes a Flask session cookie. Expected: HTTP 200 and success response with user details."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected status code is 200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Login response includes successful user payload', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.success).to.eql(true);",
+                  "  pm.expect(json.user).to.be.an('object');",
+                  "  pm.expect(json.user.email).to.eql(pm.collectionVariables.get('test_email'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Invalid User Login Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{invalid_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "login"
+              ]
+            },
+            "description": "Validates that incorrect credentials are rejected. Expected: HTTP 401 and invalid credential response."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected status code is 401 Unauthorized', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test('Invalid login response indicates failure', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.success).to.eql(false);",
+                  "  pm.expect(json.message.toLowerCase()).to.include('invalid');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Session Validation Test",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/check-session",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "check-session"
+              ]
+            },
+            "description": "Checks whether the current Postman cookie jar contains a valid Flask login session. Expected: HTTP 200 and authenticated=true after successful login."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected status code is 200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Session validation confirms authenticated user', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.authenticated).to.eql(true);",
+                  "  pm.expect(json.user).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. User Logout Test",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "logout"
+              ]
+            },
+            "description": "Clears the active Flask session. Expected: HTTP 200 and logout success response."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected status code is 200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Logout response indicates success', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.success).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "LegalBridge Core API Tests",
+      "description": "Legal mapping and legal section search tests. If your deployed route names differ, update the request URL paths while keeping the test assertions.",
+      "item": [
+        {
+          "name": "7. IPC to BNS Mapping API Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ipc_section\": \"{{ipc_section}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/mapping/ipc-to-bns",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "mapping",
+                "ipc-to-bns"
+              ]
+            },
+            "description": "Maps an IPC section to its BNS equivalent. Expected: HTTP 200, success response, and mapped BNS section data."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected status code is 200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('IPC to BNS response contains mapping data', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.success === true || json.status === 'success').to.eql(true);",
+                  "  pm.expect(JSON.stringify(json).toLowerCase()).to.include('bns');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8. BNS to IPC Mapping API Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bns_section\": \"{{bns_section}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/mapping/bns-to-ipc",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "mapping",
+                "bns-to-ipc"
+              ]
+            },
+            "description": "Maps a BNS section to its IPC equivalent/reference. Expected: HTTP 200, success response, and mapped IPC section data."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected status code is 200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('BNS to IPC response contains mapping data', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.success === true || json.status === 'success').to.eql(true);",
+                  "  pm.expect(JSON.stringify(json).toLowerCase()).to.include('ipc');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9. Legal Section Browse/Search API Test",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/sections/search?q={{search_query}}&law=all&limit=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "sections",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "{{search_query}}"
+                },
+                {
+                  "key": "law",
+                  "value": "all"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Searches/browses legal sections by keyword across IPC and BNS. Expected: HTTP 200, success response, and a non-empty result list for common legal terms."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected status code is 200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Browse/search response contains result data', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.success === true || json.status === 'success').to.eql(true);",
+                  "  const results = json.results || json.sections || json.data || [];",
+                  "  pm.expect(results).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

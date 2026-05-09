@@ -4,6 +4,36 @@
 let LEGAL_DATA = null;
 let browseFilter = 'all';
 let chatHistory = [];
+const DASHBOARD_API_BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000'
+  : 'http://127.0.0.1:5000';
+
+function requirePlatformAuth() {
+  if (window.localStorage.getItem('legalbridge_logged_in') !== 'true') {
+    window.location.replace('signin.html');
+    return false;
+  }
+
+  fetch(`${DASHBOARD_API_BASE_URL}/api/check-session`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+    .then(response => {
+      if (!response.ok) throw new Error('Session expired');
+      return response.json();
+    })
+    .then(data => {
+      if (data.user) {
+        window.localStorage.setItem('legalbridgeCurrentUser', JSON.stringify(data.user));
+        updateCurrentUserUI();
+      }
+    })
+    .catch(() => {
+      console.warn('Unable to verify Flask session; keeping local dashboard access state.');
+    });
+
+  return true;
+}
 
 // Data embedded directly - no fetch needed
 function loadData() {
@@ -11,14 +41,16 @@ function loadData() {
   console.log('Legal data loaded:', Object.keys(LEGAL_DATA.ipc_sections).length, 'IPC,', Object.keys(LEGAL_DATA.bns_sections).length, 'BNS');
 }
 
-loadData();
+if (requirePlatformAuth()) {
+  loadData();
+}
 
 // ─────────────────────────────────────────────
 // TAB SWITCHING
 // ─────────────────────────────────────────────
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach((t,i) => {
-    const tabs = ['lookup','search','compare'];
+    const tabs = ['lookup','search'];
     t.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -28,12 +60,31 @@ function switchTab(tab) {
 // ─────────────────────────────────────────────
 // SECTION CARD HTML BUILDER
 // ─────────────────────────────────────────────
+function escapeAttribute(value) {
+  return escapeHtml(String(value || '')).replace(/'/g, '&#39;');
+}
+
 function buildSectionCard(type, num, title, desc, mappings, mappingType) {
   const isNew = type === 'bns' && (!mappings || mappings.length === 0);
   const cardClass = isNew ? 'new' : type;
   const label = type === 'ipc' ? 'IPC' : 'BNS';
   const mapLabel = type === 'ipc' ? 'BNS' : 'IPC';
   const mapType = type === 'ipc' ? 'bns' : 'ipc';
+  const fullTitle = title || 'Section ' + num;
+  const fullDesc = desc || 'Description not available.';
+  const equivalentLabel = isNew
+    ? 'New in BNS - no direct IPC equivalent found'
+    : mappings && mappings.length > 0
+      ? `${mapLabel} ${mappings.map(m => '\u00a7' + m).join(', ')}`
+      : `No direct ${mapLabel} equivalent found`;
+  const sectionData = {
+    type,
+    label,
+    num,
+    title: fullTitle,
+    description: fullDesc,
+    equivalentLabel
+  };
   
   let mapTagsHTML = '';
   if (isNew) {
@@ -41,25 +92,78 @@ function buildSectionCard(type, num, title, desc, mappings, mappingType) {
   } else if (mappings && mappings.length > 0) {
     mapTagsHTML = `<span class="mapping-caption">${mapLabel} equivalent:</span> `;
     mapTagsHTML += mappings.slice(0, 6).map(m => 
-      `<span class="map-tag ${mapType}" onclick="showSection('${mapType}','${m}')" title="View ${mapLabel} §${m}">${mapLabel} §${m}</span>`
+      `<span class="map-tag ${mapType}" onclick="event.stopPropagation(); showSection('${mapType}','${m}')" title="View ${mapLabel} §${m}">${mapLabel} §${m}</span>`
     ).join('');
     if (mappings.length > 6) mapTagsHTML += `<span class="mapping-more"> +${mappings.length - 6} more</span>`;
   } else {
     mapTagsHTML = `<span class="mapping-empty">No direct ${mapLabel} equivalent found</span>`;
   }
 
-  const shortDesc = desc ? desc.substring(0, 300) + (desc.length > 300 ? '...' : '') : 'Description not available.';
+  const shortDesc = fullDesc.substring(0, 300) + (fullDesc.length > 300 ? '...' : '');
 
   return `
-    <div class="result-card ${cardClass}">
+    <div class="result-card ${cardClass}" role="button" tabindex="0" data-section-detail='${escapeAttribute(JSON.stringify(sectionData))}' onclick="openSectionModalFromCard(this)" onkeydown="handleSectionCardKeydown(event, this)">
       <div class="result-card-header">
-        <span class="section-number">${label} §${num}</span>
-        <span class="result-card-title">${title || 'Section ' + num}</span>
+        <span class="section-number">${label} &sect;${num}</span>
+        <span class="result-card-title">${escapeHtml(fullTitle)}</span>
       </div>
-      <div class="result-card-body">${shortDesc}</div>
+      <div class="result-card-body">${escapeHtml(shortDesc)}</div>
       <div class="result-card-footer">${mapTagsHTML}</div>
     </div>`;
 }
+
+function handleSectionCardKeydown(event, card) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    openSectionModalFromCard(card);
+  }
+}
+
+function openSectionModalFromCard(card) {
+  const raw = card.dataset.sectionDetail;
+  if (!raw) return;
+
+  try {
+    openSectionModal(JSON.parse(raw));
+  } catch (err) {
+    console.error('Unable to open section detail modal:', err);
+  }
+}
+
+function openSectionModal(section) {
+  const modal = document.getElementById('sectionDetailModal');
+  if (!modal) return;
+
+  document.getElementById('sectionModalBadge').textContent = `${section.label} \u00a7${section.num}`;
+  document.getElementById('sectionModalTitle').textContent = section.title || `Section ${section.num}`;
+  document.getElementById('sectionModalDescription').textContent = section.description || 'Description not available.';
+  document.getElementById('sectionModalMapping').textContent = section.equivalentLabel || 'No mapped section reference available.';
+
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-open');
+  const closeBtn = modal.querySelector('.section-modal-close');
+  if (closeBtn) closeBtn.focus();
+}
+
+function closeSectionModal() {
+  const modal = document.getElementById('sectionDetailModal');
+  if (!modal) return;
+
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('modal-open');
+}
+
+function handleSectionModalBackdrop(event) {
+  if (event.target.id === 'sectionDetailModal') {
+    closeSectionModal();
+  }
+}
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeSectionModal();
+});
 
 // ─────────────────────────────────────────────
 // SHOW SECTION (navigate to)
@@ -501,6 +605,20 @@ function escapeHtml(text) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+async function logoutUser() {
+  try {
+    await fetch(`${DASHBOARD_API_BASE_URL}/api/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+  } catch (error) {
+    // Keep local logout reliable even if the API is unavailable.
+  }
+  window.localStorage.removeItem('legalbridge_logged_in');
+  window.localStorage.removeItem('legalbridgeCurrentUser');
+  window.location.href = './signin.html';
 }
 
 // Clear chat
