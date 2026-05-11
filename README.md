@@ -4,6 +4,41 @@
 
 Map complaints to IPC and BNS legal sections using a simple Flask + HTML app.
 
+## Secrets and Security Management
+
+LegalBridge uses environment variables for sensitive configuration:
+
+- `SECRET_KEY`
+- `JWT_SECRET`
+- `FLASK_ENV`
+- `DEBUG`
+
+Start by copying the example file:
+
+```bash
+cp .env.example .env
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Generate strong secret values:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(64))"
+```
+
+The real `.env` file is ignored by Git and must not be uploaded to GitHub. For the full final-year DevOps project explanation, see [SECURITY_MANAGEMENT.md](SECURITY_MANAGEMENT.md).
+
+Run the complete stack with Docker:
+
+```bash
+docker compose up --build
+```
+
 ## 📁 Project Structure
 
 ```

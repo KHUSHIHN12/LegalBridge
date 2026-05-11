@@ -1,3 +1,4 @@
+
 terraform {
   required_providers {
     docker = {
@@ -58,3 +59,4 @@ resource "docker_container" "nginx_container" {
     container_path = "/etc/nginx/nginx.conf"
   }
 }
+
