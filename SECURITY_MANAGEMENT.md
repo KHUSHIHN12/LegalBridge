@@ -1,293 +1,295 @@
 # LegalBridge Secrets and Security Management
 
-This guide explains how LegalBridge handles secrets in a beginner-friendly DevOps architecture using Flask, SQLite, Docker Compose, Prometheus, GitHub Actions, and Terraform.
+This document explains how LegalBridge handles secrets using HashiCorp Vault locally with Docker. It is written for a beginner-friendly final-year DevOps project and avoids AWS IAM or paid cloud services.
 
-LegalBridge uses SQLite only. There is no MongoDB configuration in this project.
+## Security Goal
 
-## What Secrets Management Means
+LegalBridge needs sensitive values for Flask sessions, future JWT signing, and runtime configuration. These values should not be hardcoded in source code because Git history, public repositories, CI logs, and shared systems can expose them.
 
-Secrets management means storing sensitive values outside source code and passing them securely to the application at runtime.
-
-Examples of secrets:
+Secrets used by LegalBridge:
 
 - `SECRET_KEY`: Flask session signing key.
-- `JWT_SECRET`: signing key for JWT tokens if JWT authentication is added.
-- Cloud credentials, API keys, SSH keys, and deployment tokens.
+- `JWT_SECRET`: signing key for future JWT-based authentication.
+- `FLASK_ENV`: runtime environment.
+- `DEBUG`: debug mode flag.
 
-Non-secret configuration can also live beside secrets:
+## Why Secrets Should Not Be Hardcoded
 
-- `FLASK_ENV`: application environment such as `development`, `testing`, or `production`.
-- `DEBUG`: whether Flask debug mode is enabled.
+Hardcoded secrets are dangerous because:
 
-## Why Hardcoding Secrets Is Dangerous
+- Anyone with repository access can read them.
+- Old secrets remain visible in Git history.
+- Public GitHub repositories are scanned for leaked credentials.
+- Leaked Flask secrets can allow forged sessions.
+- CI/CD logs can expose values if secrets are printed accidentally.
 
-Hardcoding means writing secrets directly in files like `app.py`, `docker-compose.yml`, or GitHub Actions YAML.
+LegalBridge keeps secrets outside code and loads them at runtime.
 
-This is dangerous because:
+## Vault Architecture
 
-- Anyone with repository access can see the secret.
-- Git history keeps old secrets even after a file is edited.
-- Attackers can steal session cookies or forge tokens if Flask/JWT secrets leak.
-- Public GitHub repositories are scanned by bots for exposed keys.
-- A leaked CI/CD secret can allow unauthorized deployments.
+LegalBridge uses HashiCorp Vault in local Docker dev mode.
 
-## How .env Files Improve Security
+Architecture:
 
-A `.env` file stores local environment variables outside the code. Flask loads it with `python-dotenv`, and Docker Compose can read it automatically.
+```text
+Developer Machine
+|
+|-- Docker Compose
+|   |-- legalbridge-vault     port 8200
+|   |-- legalbridge-backend   port 5000
+|   |-- legalbridge-frontend  port 8080
+|   |-- prometheus            port 9090
+|   `-- grafana               port 3000
+|
+`-- .env fallback
+```
 
-The important rule is:
+Vault service settings:
 
-- Commit `.env.example`.
-- Never commit `.env`.
+```text
+Image: hashicorp/vault
+Mode: dev
+Port: 8200
+Demo root token: legalbridge-root-token
+Listen address: 0.0.0.0:8200
+```
 
-The `.env.example` file documents the required variables without exposing real values.
+The backend receives:
 
-## Required Local .env Variables
+```text
+VAULT_ADDR=http://vault:8200
+VAULT_TOKEN=legalbridge-root-token
+```
 
-Create a local `.env` file from the example:
+## Secret Flow
+
+Secret flow in LegalBridge:
+
+1. Docker Compose starts Vault.
+2. Docker Compose starts the Flask backend.
+3. Flask loads `.env` first using `python-dotenv`.
+4. Flask tries to connect to Vault using `VAULT_ADDR` and `VAULT_TOKEN`.
+5. Flask reads secrets from `secret/data/legalbridge/config`.
+6. If Vault is available, Vault values are used.
+7. If Vault is unavailable, Flask safely falls back to `.env` or environment variables.
+8. Flask never prints actual secret values.
+
+The backend prints only safe status messages:
+
+```text
+Vault secrets loaded successfully
+```
+
+or:
+
+```text
+Vault unavailable, using environment fallback
+```
+
+## Vault Secret Path
+
+LegalBridge reads this KV v2 path:
+
+```text
+secret/data/legalbridge/config
+```
+
+Stored demo keys:
+
+```text
+SECRET_KEY
+JWT_SECRET
+FLASK_ENV
+DEBUG
+```
+
+## Initializing Demo Secrets
+
+Recommended first run:
+
+```bash
+docker compose up -d vault
+python scripts/init_vault.py
+docker compose up --build
+```
+
+This starts Vault first, writes the demo secrets, and then starts the full stack so Flask can load secrets from Vault during startup.
+
+If the backend is already running before Vault secrets are initialized, restart it:
+
+```bash
+docker compose restart backend
+```
+
+The script writes:
+
+```text
+SECRET_KEY=legalbridge-vault-secret
+JWT_SECRET=legalbridge-vault-jwt-secret
+FLASK_ENV=development
+DEBUG=false
+```
+
+The script does not print the secret values after writing them.
+
+## Vault UI
+
+Open:
+
+```text
+http://localhost:8200
+```
+
+Login method:
+
+```text
+Token
+```
+
+Demo token:
+
+```text
+legalbridge-root-token
+```
+
+## .env Fallback
+
+`.env` is still useful for local development and CI fallback. It lets the app run even when Vault is not started.
+
+Create it from the example:
 
 ```bash
 cp .env.example .env
 ```
 
-On Windows PowerShell:
+PowerShell:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Generate secure values:
+Example values are documented in `.env.example`, while the real `.env` file is ignored by Git.
 
-```bash
-python -c "import secrets; print(secrets.token_urlsafe(64))"
-```
+## Difference Between .env and Vault
 
-Use one generated value for `SECRET_KEY` and a different generated value for `JWT_SECRET`.
+`.env`:
 
-Example `.env` format:
+- Simple local file.
+- Good for beginner development.
+- Easy to accidentally copy or leak.
+- No access control.
+- No audit trail.
 
-```env
-SECRET_KEY=replace-with-a-generated-token-urlsafe-value
-JWT_SECRET=replace-with-a-different-generated-token-urlsafe-value
-FLASK_ENV=development
-DEBUG=false
-```
+Vault:
 
-For production:
+- Central secrets manager.
+- Stores secrets outside the codebase.
+- Supports policies, tokens, leases, audit logs, and secret rotation in real deployments.
+- Better for DevOps and security demonstrations.
+- Dev mode is only for learning and demos.
 
-```env
-FLASK_ENV=production
-DEBUG=false
-```
+## Local Demo Limitations
 
-## Flask Configuration Code
+This project uses Vault dev mode only for student demonstration.
 
-LegalBridge loads secrets in [backend/app.py](backend/app.py):
+Limitations:
 
-```python
-from dotenv import load_dotenv
+- The root token is fixed and visible for demo convenience.
+- Secrets are stored in memory inside the dev Vault container.
+- Secrets are lost when the dev Vault container is recreated.
+- There are no production policies or real authentication methods.
+- The root token has full admin access.
 
-load_dotenv()
+This is acceptable for a final-year local demo, but not for production.
 
-secret_key = os.getenv("SECRET_KEY")
-jwt_secret = os.getenv("JWT_SECRET")
-```
+## Production Vault Expectations
 
-The app stores them in Flask configuration:
+A production Vault setup should use:
 
-```python
-app.config.update(
-    SECRET_KEY=secret_key,
-    JWT_SECRET=jwt_secret,
-    FLASK_ENV=flask_env,
-    DEBUG=debug_enabled,
-)
-```
+- Persistent storage.
+- Initialization and unseal process.
+- Separate admin and application tokens.
+- Least-privilege policies.
+- TLS.
+- Audit logging.
+- Secret rotation.
+- No hardcoded root token.
 
-In production, `SECRET_KEY` and `JWT_SECRET` are required. If either is missing, the app stops instead of starting insecurely.
+LegalBridge intentionally does not use production Vault here because the project requirement is a safe local DevOps demonstration without cloud billing.
 
-## Docker Compose Environment Integration
+## GitHub Actions CI/CD
 
-[docker-compose.yml](docker-compose.yml) reads `.env` and passes values into the backend container:
-
-```yaml
-backend:
-  env_file:
-    - .env
-  environment:
-    SECRET_KEY: ${SECRET_KEY}
-    JWT_SECRET: ${JWT_SECRET}
-    FLASK_ENV: ${FLASK_ENV:-development}
-    DEBUG: ${DEBUG:-false}
-```
-
-How Docker reads `.env` variables:
-
-1. Docker Compose looks for `.env` in the same folder as `docker-compose.yml`.
-2. Compose substitutes values like `${SECRET_KEY}`.
-3. The backend container receives those values as environment variables.
-4. Flask reads those variables using `os.getenv()` and `python-dotenv`.
-
-## GitHub Secrets for CI/CD
-
-GitHub Secrets protect CI/CD values so they are not written directly in workflow files.
-
-Add these repository secrets in GitHub:
-
-- `LEGALBRIDGE_SECRET_KEY`
-- `LEGALBRIDGE_JWT_SECRET`
-
-Path in GitHub:
+GitHub Actions still works without Vault. CI provides secrets through environment variables:
 
 ```text
-Repository > Settings > Secrets and variables > Actions > New repository secret
+SECRET_KEY
+JWT_SECRET
+FLASK_ENV
+DEBUG
 ```
 
-The workflow [legalbridge-ci.yml](.github/workflows/legalbridge-ci.yml) uses them like this:
+When Vault is not available in CI, Flask uses the environment fallback and continues safely.
 
-```yaml
-env:
-  SECRET_KEY: ${{ secrets.LEGALBRIDGE_SECRET_KEY }}
-  JWT_SECRET: ${{ secrets.LEGALBRIDGE_JWT_SECRET }}
-  FLASK_ENV: testing
-  DEBUG: "false"
-```
+## Docker Compose Integration
 
-GitHub masks secret values in logs, so accidental `echo "$SECRET_KEY"` output is hidden. Still, never print secrets intentionally.
+`docker-compose.yml` includes:
+
+- `vault`: local HashiCorp Vault dev server.
+- `backend`: Flask app that receives Vault connection variables.
+- `prometheus`: monitoring.
+- `grafana`: dashboards.
+- `frontend`: UI.
+
+The backend depends on Vault so Docker starts Vault before Flask.
+
+## Terraform Docker Provider Integration
+
+LegalBridge uses Terraform Docker Provider for local IaC. It does not use AWS IAM or paid cloud services.
+
+The Terraform setup can manage local Docker resources, including:
+
+- Vault container.
+- Backend container.
+- Nginx container.
+- Shared Docker network.
+
+This keeps the DevOps demo cloud-free and reproducible on Docker Desktop.
 
 ## .gitignore Protection
 
-[.gitignore](.gitignore) protects local secrets and generated files:
+`.gitignore` protects local secrets and generated files:
 
 ```gitignore
 .env
 .env.*
 !.env.example
 *.db
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
 terraform/*.tfvars
-!terraform/*.tfvars.example
 ```
 
 This means:
 
 - Real `.env` files stay local.
-- `.env.example` can be safely uploaded.
-- SQLite database files are not committed.
-- Real Terraform variable files are not committed.
+- `.env.example` remains safe to commit.
+- SQLite databases are not committed.
+- Terraform state and real variable files are not committed.
 
-## Basic IAM Concept
+## Viva Explanation
 
-IAM means Identity and Access Management. It controls who or what can access cloud resources.
+For viva, explain it like this:
 
-Beginner-friendly IAM rule:
-
-> Give each user, service, or pipeline only the permissions it needs, and nothing extra.
-
-Examples:
-
-- A GitHub Actions deployment role should deploy LegalBridge, but should not manage billing.
-- A student developer may read logs, but should not delete production infrastructure.
-- Terraform should use a limited AWS IAM user or role instead of the AWS root account.
-
-This is called the principle of least privilege.
-
-## Folder Structure
-
-```text
-LegalBridge/
-|-- .env.example
-|-- .gitignore
-|-- SECURITY_MANAGEMENT.md
-|-- docker-compose.yml
-|-- Dockerfile
-|-- README.md
-|-- .github/
-|   `-- workflows/
-|       `-- legalbridge-ci.yml
-|-- backend/
-|   |-- app.py
-|   |-- requirements.txt
-|   `-- search_engine.py
-|-- data/
-|   `-- sections.json
-|-- frontend/
-|   |-- Dockerfile
-|   |-- index.html
-|   |-- signin.html
-|   `-- signup.html
-|-- monitoring/
-|   `-- prometheus.yml
-`-- terraform/
-    |-- main.tf
-    |-- variables.tf
-    |-- terraform.tfvars.example
-    `-- outputs.tf
-```
-
-## Local Setup Steps
-
-Install Python dependencies:
-
-```bash
-cd backend
-pip install -r requirements.txt
-```
-
-Create a local `.env` file:
-
-```bash
-cd ..
-cp .env.example .env
-python -c "import secrets; print(secrets.token_urlsafe(64))"
-```
-
-Run Flask locally:
-
-```bash
-cd backend
-python app.py
-```
-
-Test the backend:
-
-```bash
-curl http://127.0.0.1:5000/
-curl http://127.0.0.1:5000/metrics
-```
-
-Run with Docker Compose:
-
-```bash
-docker compose up --build
-```
-
-Access services:
-
-- Flask backend: `http://localhost:5000`
-- Frontend: `http://localhost:8080`
-- Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3000`
-
-Stop containers:
-
-```bash
-docker compose down
-```
+LegalBridge implements HashiCorp Vault as the secrets management layer. Vault runs locally in Docker dev mode, so the project avoids AWS IAM and paid cloud dependencies. The Flask backend receives Vault address and token through Docker Compose, connects with the Python `hvac` client, and reads secrets from `secret/data/legalbridge/config`. If Vault is unavailable, Flask falls back to `.env` values so the app and CI do not break. This demonstrates a real DevOps security practice: secrets are separated from source code, injected at runtime, and never printed in logs.
 
 ## Beginner-Friendly Security Practices Used
 
-- Secrets are loaded from environment variables.
+- Secrets are not hardcoded in Python code.
 - `.env` is ignored by Git.
 - `.env.example` documents required variables safely.
-- GitHub Actions uses GitHub Secrets for CI/CD values.
-- Flask debug mode is disabled by default.
-- Production mode refuses to start without required secrets.
-- SQLite database files are ignored.
-- Terraform state and real variable files are ignored.
-- No MongoDB credentials are included because LegalBridge uses SQLite.
-
-## How Secrets and Security Are Implemented in the LegalBridge DevOps Architecture
-
-LegalBridge separates code from configuration. Flask reads `SECRET_KEY`, `JWT_SECRET`, `FLASK_ENV`, and `DEBUG` from environment variables instead of hardcoded source code. During local development, these values come from a private `.env` file loaded by `python-dotenv`. During containerized execution, Docker Compose reads the same `.env` file and injects the variables into the backend container. During CI/CD, GitHub Actions receives equivalent values from encrypted GitHub Secrets.
-
-The repository protects secret files through `.gitignore`, while still providing `.env.example` and `terraform.tfvars.example` so students can understand exactly what to configure. Terraform variable and state files are ignored because infrastructure metadata can become sensitive. This creates a clean DevOps security flow: developers use local `.env`, Docker uses environment injection, GitHub Actions uses encrypted secrets, and production uses required runtime secrets with debug mode disabled.
+- Vault stores demo secrets locally.
+- Flask has safe fallback behavior.
+- Secret values are never printed.
+- GitHub Actions can run without local Vault.
+- No AWS IAM or paid cloud services are used.

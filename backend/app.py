@@ -4,14 +4,20 @@ from prometheus_client import Counter, generate_latest
 from werkzeug.security import check_password_hash, generate_password_hash
 from dotenv import load_dotenv
 
+import hvac
 import json
 import os
 import sqlite3
+import time
 
 from search_engine import LegalSearchEngine
 
 
 load_dotenv()
+
+VAULT_SECRET_KEYS = ("SECRET_KEY", "JWT_SECRET", "FLASK_ENV", "DEBUG")
+VAULT_SECRET_PATH = "legalbridge/config"
+VAULT_MOUNT_POINT = "secret"
 
 
 def str_to_bool(value, default=False):
@@ -20,11 +26,59 @@ def str_to_bool(value, default=False):
     return str(value).strip().lower() in ("1", "true", "yes", "on")
 
 
+def load_vault_secrets():
+    vault_addr = os.getenv("VAULT_ADDR")
+    vault_token = os.getenv("VAULT_TOKEN")
+
+    if not vault_addr or not vault_token:
+        print("Vault unavailable, using environment fallback")
+        return {}
+
+    for attempt in range(1, 6):
+        try:
+            client = hvac.Client(url=vault_addr, token=vault_token, timeout=3)
+
+            if not client.is_authenticated():
+                print("Vault unavailable, using environment fallback")
+                return {}
+
+            response = client.secrets.kv.v2.read_secret_version(
+                mount_point=VAULT_MOUNT_POINT,
+                path=VAULT_SECRET_PATH,
+            )
+            vault_data = response.get("data", {}).get("data", {})
+            loaded_secrets = {
+                key: str(vault_data[key])
+                for key in VAULT_SECRET_KEYS
+                if vault_data.get(key) is not None
+            }
+
+            if loaded_secrets:
+                for key, value in loaded_secrets.items():
+                    os.environ[key] = value
+                print("Vault secrets loaded successfully")
+                return loaded_secrets
+
+            print("Vault unavailable, using environment fallback")
+            return {}
+
+        except Exception:
+            if attempt == 5:
+                print("Vault unavailable, using environment fallback")
+                return {}
+            time.sleep(2)
+
+    print("Vault unavailable, using environment fallback")
+    return {}
+
+
 def get_secret(name, legacy_name=None, default=None):
     return os.getenv(name) or (os.getenv(legacy_name) if legacy_name else None) or default
 
 
 def create_app():
+    load_vault_secrets()
+
     app = Flask(__name__)
 
     flask_env = os.getenv("FLASK_ENV", "development").strip().lower()

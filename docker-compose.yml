@@ -2,6 +2,24 @@ version: '3.9'
 
 services:
 
+  vault:
+    image: hashicorp/vault:latest
+    container_name: legalbridge-vault
+
+    ports:
+      - "8200:8200"
+
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: legalbridge-root-token
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+
+    cap_add:
+      - IPC_LOCK
+
+    command: server -dev
+
+    restart: always
+
   backend:
     build: .
     container_name: legalbridge-backend
@@ -17,6 +35,11 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       FLASK_ENV: ${FLASK_ENV:-development}
       DEBUG: ${DEBUG:-false}
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: legalbridge-root-token
+
+    depends_on:
+      - vault
 
     volumes:
       - ./data:/app/data
