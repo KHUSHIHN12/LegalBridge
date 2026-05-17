@@ -1,0 +1,24 @@
+venv/
+__pycache__/
+*.pyc
+*.db
+
+# Local secrets. Commit .env.example, never commit .env.
+.env
+.env.*
+!.env.example
+
+# Python and test output
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Docker/local runtime noise
+*.log
+
+# Terraform local state and variable files may contain account details.
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfvars
+!terraform/*.tfvars.example

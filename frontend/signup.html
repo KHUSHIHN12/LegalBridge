@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LegalBridge | Create Account</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="./auth.css">
+</head>
+<body class="auth-page signup-page">
+  <div class="page-shell">
+    <header class="site-header">
+      <nav class="navbar">
+        <a class="brand" href="./index.html" data-platform-link>
+          <span class="brand-mark"><i class="fa-solid fa-scale-balanced"></i></span>
+          <span class="brand-copy">
+            <strong>LegalBridge</strong>
+            <small>AI Powered Legal Intelligence</small>
+          </span>
+        </a>
+        <button class="nav-toggle" type="button" aria-label="Toggle navigation" data-nav-toggle>
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="nav-links" data-nav-menu>
+          <a href="./about.html">About</a>
+          <a href="./index.html" data-platform-link>Platform</a>
+          <a href="./signin.html">Sign In</a>
+          <a href="./signup.html" class="nav-cta active">Create Account</a>
+        </div>
+      </nav>
+    </header>
+
+    <main class="auth-main">
+      <section class="auth-layout">
+        <aside class="brand-panel glass-panel">
+          <div class="panel-badge">Legal-Tech Platform</div>
+          <h1>Welcome to LegalBridge</h1>
+          <p class="brand-subtitle">AI Powered Legal Intelligence Platform</p>
+          <p class="brand-description">
+            Equip legal professionals, students, and research teams with intelligent criminal-law mapping across IPC and BNS.
+          </p>
+
+          <ul class="feature-list">
+            <li><i class="fa-solid fa-check"></i> Instant IPC ↔ BNS Mapping</li>
+            <li><i class="fa-solid fa-check"></i> Smart Criminal Case Analysis</li>
+            <li><i class="fa-solid fa-check"></i> Legal Provision Recommendation</li>
+          </ul>
+
+          <div class="legal-illustration" aria-hidden="true">
+            <div class="orb orb-one"></div>
+            <div class="orb orb-two"></div>
+            <div class="legal-card">
+              <div class="legal-card-top">
+                <span class="status-dot"></span>
+                <span>Case Intelligence Engine</span>
+              </div>
+              <div class="legal-card-grid">
+                <div class="mini-tile">
+                  <i class="fa-solid fa-landmark"></i>
+                  <span>IPC Sections</span>
+                </div>
+                <div class="mini-tile">
+                  <i class="fa-solid fa-book-open-reader"></i>
+                  <span>BNS Mapping</span>
+                </div>
+                <div class="mini-tile wide">
+                  <i class="fa-solid fa-sparkles"></i>
+                  <span>AI Case Analysis</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <section class="form-panel glass-panel">
+          <div class="form-heading">
+            <span class="eyebrow">Create your workspace</span>
+            <h2>Register Your Account</h2>
+            <p>Start using premium legal intelligence workflows in a secure, investor-ready platform.</p>
+          </div>
+
+          <form class="auth-form" data-auth-form="signup" novalidate>
+            <div class="field-grid">
+              <div class="field-group">
+                <label for="signup-name">Full Name</label>
+                <div class="input-shell">
+                  <i class="fa-regular fa-user"></i>
+                  <input id="signup-name" name="fullName" type="text" placeholder="Enter your full name" data-validate="name" required>
+                </div>
+                <small class="field-message"></small>
+              </div>
+
+              <div class="field-group">
+                <label for="signup-email">Email Address</label>
+                <div class="input-shell">
+                  <i class="fa-regular fa-envelope"></i>
+                  <input id="signup-email" name="email" type="email" placeholder="name@firm.com" data-validate="email" required>
+                </div>
+                <small class="field-message"></small>
+              </div>
+
+              <div class="field-group">
+                <label for="signup-password">Password</label>
+                <div class="input-shell">
+                  <i class="fa-solid fa-lock"></i>
+                  <input id="signup-password" name="password" type="password" placeholder="Create a secure password" data-password-source data-validate="password" required>
+                  <button class="input-action" type="button" data-toggle-password aria-label="Show password">
+                    <i class="fa-regular fa-eye"></i>
+                  </button>
+                </div>
+                <div class="strength-meter" aria-hidden="true">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+                <div class="strength-copy" data-password-strength>Choose a strong password</div>
+                <small class="field-message"></small>
+              </div>
+
+              <div class="field-group">
+                <label for="signup-confirm">Confirm Password</label>
+                <div class="input-shell">
+                  <i class="fa-solid fa-shield-halved"></i>
+                  <input id="signup-confirm" name="confirmPassword" type="password" placeholder="Re-enter password" data-confirm-password data-validate="confirm-password" required>
+                  <button class="input-action" type="button" data-toggle-password aria-label="Show password">
+                    <i class="fa-regular fa-eye"></i>
+                  </button>
+                </div>
+                <small class="field-message"></small>
+              </div>
+            </div>
+
+            <label class="checkbox-row">
+              <input type="checkbox" name="terms" data-validate="terms" required>
+              <span>I agree to the Terms &amp; Conditions and the secure processing of legal workflow data.</span>
+            </label>
+            <small class="field-message checkbox-message"></small>
+
+            <button class="primary-button" type="submit" data-submit-label="Create Account">
+              <span>Create Account</span>
+              <i class="fa-solid fa-arrow-right-long"></i>
+            </button>
+
+            <p class="redirect-copy">
+              Already have access?
+              <a href="./signin.html">Sign In</a>
+            </p>
+          </form>
+        </section>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <strong>LegalBridge</strong>
+        <span>AI-first criminal law intelligence for modern legal workflows.</span>
+      </div>
+      <div class="footer-links">
+        <a href="./about.html">About</a>
+        <a href="./signin.html">Sign In</a>
+        <a href="./index.html" data-platform-link>Go to Platform</a>
+      </div>
+    </footer>
+  </div>
+
+  <div class="toast" id="authToast" role="status" aria-live="polite">
+    <i class="fa-solid fa-circle-check"></i>
+    <span data-toast-message>Success</span>
+  </div>
+
+  <script src="./config.js"></script>
+  <script src="./auth.js"></script>
+</body>
+</html>

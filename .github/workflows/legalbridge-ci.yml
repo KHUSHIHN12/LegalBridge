@@ -1,0 +1,143 @@
+name: LegalBridge CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate-and-smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # In a real GitHub repository, set these in:
+      # Settings > Secrets and variables > Actions > Repository secrets
+      SECRET_KEY: ${{ secrets.LEGALBRIDGE_SECRET_KEY || 'ci-demo-secret-key-change-this-in-github-secrets-1234567890' }}
+      JWT_SECRET: ${{ secrets.LEGALBRIDGE_JWT_SECRET || 'ci-demo-jwt-secret-change-this-in-github-secrets-1234567890' }}
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+      MONGODB_DB_NAME: legalbridge_ci
+      MONGODB_USERS_COLLECTION: users
+      FLASK_ENV: testing
+      DEBUG: "false"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            backend/requirements.txt
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Validate backend syntax
+        run: |
+          python -m py_compile backend/app.py
+
+      - name: Validate backend modules
+        run: |
+          python -m py_compile backend/app.py backend/search_engine.py
+
+      - name: Confirm secrets are provided through environment
+        run: |
+          test -n "$SECRET_KEY"
+          test -n "$JWT_SECRET"
+          test -n "$MONGODB_URI"
+          test "$DEBUG" = "false"
+
+      - name: Validate legal mapping data
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data_path = Path("data/sections.json")
+          with data_path.open(encoding="utf-8") as fh:
+              data = json.load(fh)
+
+          required_keys = {"ipc_sections", "bns_sections", "ipc_to_bns", "bns_to_ipc"}
+          missing = required_keys - data.keys()
+          if missing:
+              raise SystemExit(f"Missing keys in sections.json: {sorted(missing)}")
+
+          print("sections.json structure validated")
+          PY
+
+      - name: Check frontend files exist
+        run: |
+          test -f frontend/index.html
+          test -f frontend/signup.html
+          test -f frontend/signin.html
+          test -f frontend/about.html
+          test -f frontend/styles.css
+          test -f frontend/auth.css
+          test -f frontend/app.js
+          test -f frontend/auth.js
+          test -f frontend/legal-data.js
+
+      - name: Smoke test Flask routes
+        run: |
+          python backend/app.py &
+          APP_PID=$!
+
+          for attempt in {1..30}; do
+            if curl --silent --fail http://127.0.0.1:5000/; then
+              break
+            fi
+            if ! kill -0 "$APP_PID" 2>/dev/null; then
+              echo "Backend process exited before becoming healthy"
+              exit 1
+            fi
+            sleep 1
+          done
+
+          curl --silent --fail http://127.0.0.1:5000/
+          curl --fail -X POST http://127.0.0.1:5000/analyze \
+            -H "Content-Type: application/json" \
+            -d '{"text":"The accused committed murder","date":"2024-06-20"}'
+
+          kill $APP_PID
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Newman
+        run: npm install -g newman
+
+      - name: Run Postman API tests with Newman
+        run: |
+          python backend/app.py &
+          APP_PID=$!
+          trap "kill $APP_PID" EXIT
+
+          for attempt in {1..30}; do
+            if curl --silent --fail http://127.0.0.1:5000/; then
+              break
+            fi
+            if ! kill -0 "$APP_PID" 2>/dev/null; then
+              echo "Backend process exited before becoming healthy"
+              exit 1
+            fi
+            sleep 1
+          done
+
+          newman run testing/LegalBridge_API_Testing_Collection.json
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: legalbridge-frontend
+          path: frontend/
+
+      - name: CI success message
+        run: echo "LegalBridge CI completed successfully"
