@@ -30,7 +30,6 @@ services:
   - type: web
     name: legalbridge-frontend
     runtime: static
-    plan: free
     rootDir: .
     buildCommand: |
       printf "window.LEGALBRIDGE_API_BASE_URL = '%s';\n" "$LEGALBRIDGE_API_BASE_URL" > frontend/config.js
