@@ -14,6 +14,9 @@ jobs:
       # Settings > Secrets and variables > Actions > Repository secrets
       SECRET_KEY: ${{ secrets.LEGALBRIDGE_SECRET_KEY || 'ci-demo-secret-key-change-this-in-github-secrets-1234567890' }}
       JWT_SECRET: ${{ secrets.LEGALBRIDGE_JWT_SECRET || 'ci-demo-jwt-secret-change-this-in-github-secrets-1234567890' }}
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+      MONGODB_DB_NAME: legalbridge_ci
+      MONGODB_USERS_COLLECTION: users
       FLASK_ENV: testing
       DEBUG: "false"
 
@@ -47,6 +50,7 @@ jobs:
         run: |
           test -n "$SECRET_KEY"
           test -n "$JWT_SECRET"
+          test -n "$MONGODB_URI"
           test "$DEBUG" = "false"
 
       - name: Validate legal mapping data
