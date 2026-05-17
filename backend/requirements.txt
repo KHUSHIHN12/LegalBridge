@@ -1,6 +1,7 @@
 flask==3.0.0
 flask-cors==4.0.0
 python-dotenv==1.0.1
+gunicorn==22.0.0
 hvac==2.3.0
 pymongo[srv]==4.7.3
 prometheus-flask-exporter

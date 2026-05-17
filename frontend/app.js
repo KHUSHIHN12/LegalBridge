@@ -4,9 +4,11 @@
 let LEGAL_DATA = null;
 let browseFilter = 'all';
 let chatHistory = [];
-const DASHBOARD_API_BASE_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:5000'
-  : 'http://127.0.0.1:5000';
+const DASHBOARD_API_BASE_URL = window.LEGALBRIDGE_API_BASE_URL || (
+  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5000'
+    : ''
+);
 
 function requirePlatformAuth() {
   if (window.localStorage.getItem('legalbridge_logged_in') !== 'true') {

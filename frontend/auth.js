@@ -1,9 +1,11 @@
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CURRENT_USER_KEY = "legalbridgeCurrentUser";
 const LOGGED_IN_KEY = "legalbridge_logged_in";
-const API_BASE_URL = window.location.hostname === "localhost"
-  ? "http://localhost:5000"
-  : "http://127.0.0.1:5000";
+const API_BASE_URL = window.LEGALBRIDGE_API_BASE_URL || (
+  window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? "http://localhost:5000"
+    : ""
+);
 
 function readStoredJson(key) {
   try {

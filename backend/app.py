@@ -28,6 +28,14 @@ def str_to_bool(value, default=False):
     return str(value).strip().lower() in ("1", "true", "yes", "on")
 
 
+def parse_csv_env(value):
+    return [
+        item.strip()
+        for item in (value or "").split(",")
+        if item.strip()
+    ]
+
+
 def load_vault_secrets():
     vault_addr = os.getenv("VAULT_ADDR")
     vault_token = os.getenv("VAULT_TOKEN")
@@ -110,7 +118,10 @@ def create_app():
         FLASK_ENV=flask_env,
         DEBUG=debug_enabled,
         SESSION_COOKIE_HTTPONLY=True,
-        SESSION_COOKIE_SAMESITE="Lax",
+        SESSION_COOKIE_SAMESITE=os.getenv(
+            "SESSION_COOKIE_SAMESITE",
+            "None" if flask_env == "production" else "Lax",
+        ),
         SESSION_COOKIE_SECURE=flask_env == "production",
     )
 
@@ -120,18 +131,21 @@ def create_app():
 
 
 def register_extensions(app):
+    frontend_origins = parse_csv_env(os.getenv("FRONTEND_ORIGINS"))
+    allowed_origins = frontend_origins or [
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3000",
+        "null",
+    ]
+
     CORS(
         app,
         supports_credentials=True,
-        origins=[
-            "http://127.0.0.1:5500",
-            "http://localhost:5500",
-            "http://127.0.0.1:8000",
-            "http://localhost:8000",
-            "http://127.0.0.1:3000",
-            "http://localhost:3000",
-            "null",
-        ],
+        origins=allowed_origins,
     )
 
 
@@ -482,6 +496,6 @@ app = create_app()
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
-        port=5000,
+        port=int(os.getenv("PORT", 5000)),
         debug=app.config["DEBUG"],
     )
