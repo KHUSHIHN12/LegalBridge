@@ -87,9 +87,19 @@ jobs:
         run: |
           python backend/app.py &
           APP_PID=$!
-          sleep 5
 
-          curl --fail http://127.0.0.1:5000/
+          for attempt in {1..30}; do
+            if curl --silent --fail http://127.0.0.1:5000/; then
+              break
+            fi
+            if ! kill -0 "$APP_PID" 2>/dev/null; then
+              echo "Backend process exited before becoming healthy"
+              exit 1
+            fi
+            sleep 1
+          done
+
+          curl --silent --fail http://127.0.0.1:5000/
           curl --fail -X POST http://127.0.0.1:5000/analyze \
             -H "Content-Type: application/json" \
             -d '{"text":"The accused committed murder","date":"2024-06-20"}'
@@ -110,8 +120,16 @@ jobs:
           APP_PID=$!
           trap "kill $APP_PID" EXIT
 
-          sleep 5
-          curl --fail http://127.0.0.1:5000/
+          for attempt in {1..30}; do
+            if curl --silent --fail http://127.0.0.1:5000/; then
+              break
+            fi
+            if ! kill -0 "$APP_PID" 2>/dev/null; then
+              echo "Backend process exited before becoming healthy"
+              exit 1
+            fi
+            sleep 1
+          done
 
           newman run testing/LegalBridge_API_Testing_Collection.json
 
