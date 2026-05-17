@@ -1,14 +1,16 @@
 from flask import Flask, jsonify, request, session
 from flask_cors import CORS
 from prometheus_client import Counter, generate_latest
+from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError
 from werkzeug.security import check_password_hash, generate_password_hash
 from dotenv import load_dotenv
 
 import hvac
 import json
 import os
-import sqlite3
 import time
+from datetime import datetime, timezone
 
 from search_engine import LegalSearchEngine
 
@@ -139,30 +141,26 @@ REQUEST_COUNT = Counter(
 )
 
 BASE_DIR = os.path.dirname(__file__)
-DB_PATH = os.getenv("SQLITE_DB_PATH", os.path.join(BASE_DIR, "users.db"))
 DATA_PATH = os.path.join(BASE_DIR, "../data/sections.json")
+MONGODB_URI = os.getenv("MONGODB_URI")
+MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "legalbridge")
+MONGODB_USERS_COLLECTION = os.getenv("MONGODB_USERS_COLLECTION", "users")
 
 
-def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+if not MONGODB_URI:
+    raise RuntimeError(
+        "Missing MONGODB_URI. Set your MongoDB Atlas connection string in .env, "
+        "Docker, or your deployment environment."
+    )
 
 
-def init_user_db():
-    with get_db_connection() as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                fullname TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
-        conn.commit()
+mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+mongo_db = mongo_client[MONGODB_DB_NAME]
+users_collection = mongo_db[MONGODB_USERS_COLLECTION]
+
+
+def init_user_store():
+    users_collection.create_index("email", unique=True)
 
 
 def load_legal_data():
@@ -170,7 +168,7 @@ def load_legal_data():
         return json.load(f)
 
 
-init_user_db()
+init_user_store()
 legal_data = load_legal_data()
 ipc_sections = legal_data["ipc_sections"]
 bns_sections = legal_data["bns_sections"]
@@ -240,16 +238,13 @@ def register_routes(app):
         password_hash = generate_password_hash(password)
 
         try:
-            with get_db_connection() as conn:
-                conn.execute(
-                    """
-                    INSERT INTO users (fullname, email, password)
-                    VALUES (?, ?, ?)
-                    """,
-                    (fullname, email, password_hash),
-                )
-                conn.commit()
-        except sqlite3.IntegrityError:
+            users_collection.insert_one({
+                "fullname": fullname,
+                "email": email,
+                "password": password_hash,
+                "created_at": datetime.now(timezone.utc),
+            })
+        except DuplicateKeyError:
             return jsonify({
                 "success": False,
                 "message": "A user with this email already exists.",
@@ -274,15 +269,7 @@ def register_routes(app):
                 "message": "Email and password are required.",
             }), 400
 
-        with get_db_connection() as conn:
-            user = conn.execute(
-                """
-                SELECT id, fullname, email, password
-                FROM users
-                WHERE email = ?
-                """,
-                (email,),
-            ).fetchone()
+        user = users_collection.find_one({"email": email})
 
         if not user or not check_password_hash(user["password"], password):
             return jsonify({
@@ -291,7 +278,7 @@ def register_routes(app):
             }), 401
 
         session["logged_in"] = True
-        session["user_id"] = user["id"]
+        session["user_id"] = str(user["_id"])
         session["fullname"] = user["fullname"]
         session["email"] = user["email"]
 
@@ -299,7 +286,7 @@ def register_routes(app):
             "success": True,
             "message": "Login successful.",
             "user": {
-                "id": user["id"],
+                "id": str(user["_id"]),
                 "fullName": user["fullname"],
                 "email": user["email"],
             },

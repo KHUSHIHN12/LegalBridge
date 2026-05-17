@@ -35,6 +35,9 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       FLASK_ENV: ${FLASK_ENV:-development}
       DEBUG: ${DEBUG:-false}
+      MONGODB_URI: ${MONGODB_URI}
+      MONGODB_DB_NAME: ${MONGODB_DB_NAME:-legalbridge}
+      MONGODB_USERS_COLLECTION: ${MONGODB_USERS_COLLECTION:-users}
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: legalbridge-root-token
 
